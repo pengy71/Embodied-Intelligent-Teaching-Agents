@@ -6,12 +6,23 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { personalStats, aiTemplates, learningPath } from "@/lib/mock-data";
+import {
+  STUDENT_ASSISTANT_STORAGE_KEY,
+  defaultStudentAssistantPreferences,
+  getDepthLabel,
+  getPaceLabel,
+  normalizeStudentAssistantPreferences,
+  type StudentAssistantPreferences,
+} from "@/lib/teaching/student-assistant";
 import Link from "next/link";
+import { toast } from "sonner";
 import {
   Calendar,
   Clock,
@@ -33,6 +44,8 @@ import {
   Flag,
   Timer,
   ArrowRight,
+  Download,
+  Save,
 } from "lucide-react";
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -44,25 +57,64 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
 
 export default function StudentAssistantPage() {
   const [activeTab, setActiveTab] = useState("today");
-  const [selectedTemplate, setSelectedTemplate] = useState("inspiring");
-  const [pace, setPace] = useState(50);
-  const [depth, setDepth] = useState(50);
+  const [preferences, setPreferences] = useState<StudentAssistantPreferences>(() => {
+    if (typeof window === "undefined") return defaultStudentAssistantPreferences;
+
+    try {
+      const saved = window.localStorage.getItem(STUDENT_ASSISTANT_STORAGE_KEY);
+      return saved ? normalizeStudentAssistantPreferences(JSON.parse(saved)) : defaultStudentAssistantPreferences;
+    } catch {
+      return defaultStudentAssistantPreferences;
+    }
+  });
+  const [completedTaskIds, setCompletedTaskIds] = useState(
+    () => new Set(personalStats.todayPlan.filter((task) => task.done).map((task) => task.id)),
+  );
+  const [lastUpdated, setLastUpdated] = useState("刚刚");
 
   const stats = personalStats;
+
+  const updatePreference = <K extends keyof StudentAssistantPreferences>(key: K, value: StudentAssistantPreferences[K]) => {
+    setPreferences((current) => ({ ...current, [key]: value }));
+  };
+
+  const toggleTask = (taskId: number, checked: boolean) => {
+    setCompletedTaskIds((current) => {
+      const next = new Set(current);
+      if (checked) next.add(taskId);
+      else next.delete(taskId);
+      return next;
+    });
+    toast.success(checked ? "任务已标记为完成" : "任务已恢复为待完成");
+  };
+
+  const refreshRecommendation = () => {
+    setLastUpdated("刚刚更新");
+    toast.success("已根据当前学习进度更新建议");
+  };
+
+  const savePreferences = () => {
+    try {
+      window.localStorage.setItem(STUDENT_ASSISTANT_STORAGE_KEY, JSON.stringify(preferences));
+      toast.success("个性化设置已保存");
+    } catch {
+      toast.error("设置保存失败，请检查浏览器存储权限");
+    }
+  };
 
   return (
     <div>
       <PageHeader title="AI学习助手" description="AI 结合学习进度和知识掌握情况，智能推荐学习内容">
-        <Button variant="outline" size="sm">
+        <Button variant="outline" size="sm" onClick={refreshRecommendation}>
           <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
           刷新
         </Button>
       </PageHeader>
 
       {/* Quick Stats */}
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Card>
-          <CardContent className="flex items-center gap-3 pt-5">
+          <CardContent className="flex min-h-32 flex-col items-start gap-2 p-4 sm:min-h-0 sm:flex-row sm:items-center sm:gap-3 sm:p-6 sm:pt-5">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10">
               <Calendar className="h-5 w-5 text-primary" />
             </div>
@@ -73,7 +125,7 @@ export default function StudentAssistantPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-3 pt-5">
+          <CardContent className="flex min-h-32 flex-col items-start gap-2 p-4 sm:min-h-0 sm:flex-row sm:items-center sm:gap-3 sm:p-6 sm:pt-5">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10">
               <Clock className="h-5 w-5 text-emerald-600" />
             </div>
@@ -84,7 +136,7 @@ export default function StudentAssistantPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-3 pt-5">
+          <CardContent className="flex min-h-32 flex-col items-start gap-2 p-4 sm:min-h-0 sm:flex-row sm:items-center sm:gap-3 sm:p-6 sm:pt-5">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/10">
               <Flame className="h-5 w-5 text-amber-600" />
             </div>
@@ -95,12 +147,14 @@ export default function StudentAssistantPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-3 pt-5">
+          <CardContent className="flex min-h-32 flex-col items-start gap-2 p-4 sm:min-h-0 sm:flex-row sm:items-center sm:gap-3 sm:p-6 sm:pt-5">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-500/10">
               <Target className="h-5 w-5 text-purple-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{stats.masteredPoints}/{stats.totalPoints}</p>
+              <p className="text-2xl font-bold">
+                {stats.masteredPoints}/{stats.totalPoints}
+              </p>
               <p className="text-xs text-muted-foreground">已掌握知识点</p>
             </div>
           </CardContent>
@@ -108,7 +162,7 @@ export default function StudentAssistantPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
+        <TabsList className="grid h-auto w-full grid-cols-2 sm:w-auto sm:grid-cols-4">
           <TabsTrigger value="today">今日建议</TabsTrigger>
           <TabsTrigger value="path">学习路径</TabsTrigger>
           <TabsTrigger value="report">学习报告</TabsTrigger>
@@ -127,24 +181,28 @@ export default function StudentAssistantPage() {
                   </div>
                   <div>
                     <CardTitle className="text-base">AI 导学寄语</CardTitle>
-                    <CardDescription>根据你的学习画像和知识图谱智能生成</CardDescription>
+                    <CardDescription>根据你的学习画像和知识图谱智能生成 · {lastUpdated}</CardDescription>
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
                 <p className="text-sm leading-relaxed text-foreground">
-                  你在<span className="font-medium text-primary">卡尔曼滤波</span>上的掌握率已达到 85%，表现很好！
-                  不过在<span className="font-medium text-destructive">Motion Planning</span>方面还有提升空间。
-                  今天建议先巩固卡尔曼滤波相关概念，然后进入第三章 HTN 层级任务网络的学习。
+                  你在<span className="font-medium text-primary">卡尔曼滤波</span>上的掌握率已达到 85%，表现很好！ 不过在
+                  <span className="font-medium text-destructive">Motion Planning</span>
+                  方面还有提升空间。 今天建议先巩固卡尔曼滤波相关概念，然后进入第三章 HTN 层级任务网络的学习。
                   记得完成配套练习来检验学习效果。
                 </p>
                 <div className="mt-6">
-                  <Link href="/student/learn">
-                    <Button size="lg" className="h-12 px-8 text-base font-semibold shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all">
+                  <Button
+                    asChild
+                    size="lg"
+                    className="h-12 px-8 text-base font-semibold shadow-lg shadow-primary/25 transition-all hover:shadow-xl hover:shadow-primary/30"
+                  >
+                    <Link href="/teaching/student/resources">
                       <ChevronRight className="mr-1 h-5 w-5" />
                       开始今日学习
-                    </Button>
-                  </Link>
+                    </Link>
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -162,8 +220,8 @@ export default function StudentAssistantPage() {
                       {i + 1}
                     </span>
                     <span className="flex-1 text-sm">{p}</span>
-                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
-                      学习
+                    <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-xs">
+                      <Link href="/teaching/student/practice">巩固</Link>
                     </Button>
                   </div>
                 ))}
@@ -179,48 +237,51 @@ export default function StudentAssistantPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {stats.todayPlan.map((task, idx) => (
-                  <div
-                    key={task.id}
-                    className={`flex items-center gap-4 rounded-lg border p-4 transition-base ${
-                      task.done ? "bg-success/5 border-success/20" : "hover:border-primary/30"
-                    }`}
-                  >
-                    {task.done ? (
-                      <CheckCircle2 className="h-5 w-5 shrink-0 text-success" />
-                    ) : (
-                      <Circle className="h-5 w-5 shrink-0 text-muted-foreground" />
-                    )}
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className={`text-sm font-medium ${task.done ? "line-through text-muted-foreground" : ""}`}>
-                          {task.title}
-                        </span>
-                        <Badge
-                          variant={task.type === "巩固" ? "secondary" : task.type === "新知" ? "default" : "outline"}
-                          className="text-xs"
-                        >
-                          {task.type}
-                        </Badge>
+                {stats.todayPlan.map((task, idx) => {
+                  const isDone = completedTaskIds.has(task.id);
+                  const taskHref = task.type === "新知" ? "/teaching/student/resources" : "/teaching/student/practice";
+
+                  return (
+                    <div
+                      key={task.id}
+                      className={`flex items-center gap-4 rounded-lg border p-4 transition-colors ${
+                        isDone ? "border-success/20 bg-success/5" : "hover:border-primary/30"
+                      }`}
+                    >
+                      <Checkbox
+                        checked={isDone}
+                        onCheckedChange={(checked) => toggleTask(task.id, checked === true)}
+                        aria-label={`${isDone ? "恢复" : "完成"}${task.title}`}
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-sm font-medium ${isDone ? "line-through text-muted-foreground" : ""}`}>{task.title}</span>
+                          <Badge
+                            variant={task.type === "巩固" ? "secondary" : task.type === "新知" ? "default" : "outline"}
+                            className="text-xs"
+                          >
+                            {task.type}
+                          </Badge>
+                        </div>
+                        <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <BookOpen className="h-3 w-3" />
+                            {task.chapter}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {task.estimated}
+                          </span>
+                        </div>
                       </div>
-                      <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <BookOpen className="h-3 w-3" />
-                          {task.chapter}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {task.estimated}
-                        </span>
-                      </div>
+                      {!isDone && (
+                        <Button asChild size="sm">
+                          <Link href={taskHref}>{idx === 1 ? "开始学习" : "开始练习"}</Link>
+                        </Button>
+                      )}
                     </div>
-                    {!task.done && (
-                      <Button size="sm">
-                        {idx === 1 ? "开始学习" : "开始练习"}
-                      </Button>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
@@ -288,7 +349,7 @@ export default function StudentAssistantPage() {
                     </CardTitle>
                     <CardDescription>根据你的学习画像和知识图谱动态规划，随学习进展持续更新</CardDescription>
                   </div>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" onClick={refreshRecommendation}>
                     <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
                     刷新路径
                   </Button>
@@ -309,13 +370,15 @@ export default function StudentAssistantPage() {
                         <div key={phase.id} className="relative">
                           {/* Phase node */}
                           <div className="flex items-start gap-4">
-                            <div className={`relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 ${
-                              isCompleted
-                                ? "border-success bg-success text-white"
-                                : isInProgress
-                                ? "border-primary bg-primary/10"
-                                : "border-muted-foreground/30 bg-muted"
-                            }`}>
+                            <div
+                              className={`relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 ${
+                                isCompleted
+                                  ? "border-success bg-success text-white"
+                                  : isInProgress
+                                    ? "border-primary bg-primary/10"
+                                    : "border-muted-foreground/30 bg-muted"
+                              }`}
+                            >
                               {isCompleted ? (
                                 <CheckCircle2 className="h-5 w-5" />
                               ) : isInProgress ? (
@@ -325,24 +388,24 @@ export default function StudentAssistantPage() {
                               )}
                             </div>
 
-                            <div className={`flex-1 rounded-lg border p-4 ${
-                              isInProgress ? "border-primary/30 bg-primary/5" : ""
-                            }`}>
+                            <div className={`flex-1 rounded-lg border p-4 ${isInProgress ? "border-primary/30 bg-primary/5" : ""}`}>
                               <div className="mb-2 flex items-center justify-between">
-                                <h4 className={`text-sm font-semibold ${
-                                  isNotStarted ? "text-muted-foreground" : ""
-                                }`}>
-                                  {phase.title}
-                                </h4>
+                                <h4 className={`text-sm font-semibold ${isNotStarted ? "text-muted-foreground" : ""}`}>{phase.title}</h4>
                                 <div className="flex items-center gap-2">
                                   {isCompleted && (
-                                    <Badge variant="default" className="text-xs">已完成</Badge>
+                                    <Badge variant="default" className="text-xs">
+                                      已完成
+                                    </Badge>
                                   )}
                                   {isInProgress && (
-                                    <Badge variant="default" className="text-xs">进行中</Badge>
+                                    <Badge variant="default" className="text-xs">
+                                      进行中
+                                    </Badge>
                                   )}
                                   {isNotStarted && (
-                                    <Badge variant="secondary" className="text-xs">未开始</Badge>
+                                    <Badge variant="secondary" className="text-xs">
+                                      未开始
+                                    </Badge>
                                   )}
                                 </div>
                               </div>
@@ -351,16 +414,19 @@ export default function StudentAssistantPage() {
                               <div className="mb-3">
                                 <div className="mb-1 flex items-center justify-between text-xs">
                                   <span className="text-muted-foreground">进度</span>
-                                  <span className={`font-medium ${
-                                    phase.progress === 100 ? "text-success" : phase.progress > 0 ? "text-primary" : "text-muted-foreground"
-                                  }`}>
+                                  <span
+                                    className={`font-medium ${
+                                      phase.progress === 100
+                                        ? "text-success"
+                                        : phase.progress > 0
+                                          ? "text-primary"
+                                          : "text-muted-foreground"
+                                    }`}
+                                  >
                                     {phase.progress}%
                                   </span>
                                 </div>
-                                <Progress
-                                  value={phase.progress}
-                                  
-                                />
+                                <Progress value={phase.progress} />
                               </div>
 
                               {/* Time info */}
@@ -371,7 +437,9 @@ export default function StudentAssistantPage() {
                                       <Calendar className="h-3 w-3" />
                                       完成于 {phase.completedDate}
                                     </span>
-                                    <span>预估 {phase.estimatedDays} 天 · 实际 {phase.actualDays} 天</span>
+                                    <span>
+                                      预估 {phase.estimatedDays} 天 · 实际 {phase.actualDays} 天
+                                    </span>
                                   </>
                                 )}
                                 {isInProgress && (
@@ -399,24 +467,30 @@ export default function StudentAssistantPage() {
                                       node.status === "completed"
                                         ? "border-success/20 bg-success/5"
                                         : node.status === "in_progress"
-                                        ? "border-primary/20 bg-primary/5"
-                                        : node.status === "learning"
-                                        ? "border-amber-200 bg-amber-50/50"
-                                        : "border-border"
+                                          ? "border-primary/20 bg-primary/5"
+                                          : node.status === "learning"
+                                            ? "border-amber-200 bg-amber-50/50"
+                                            : "border-border"
                                     }`}
                                   >
                                     {node.status === "completed" && <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />}
                                     {node.status === "in_progress" && <Circle className="h-4 w-4 shrink-0 text-primary" />}
                                     {node.status === "learning" && <Circle className="h-4 w-4 shrink-0 text-amber-500" />}
                                     {node.status === "not_started" && <Circle className="h-4 w-4 shrink-0 text-muted-foreground/40" />}
-                                    <span className={`flex-1 ${
-                                      node.status === "not_started" ? "text-muted-foreground" : ""
-                                    }`}>
+                                    <span className={`flex-1 ${node.status === "not_started" ? "text-muted-foreground" : ""}`}>
                                       {node.name}
                                     </span>
-                                    <span className={`text-xs font-medium ${
-                                      node.mastery >= 70 ? "text-success" : node.mastery >= 40 ? "text-warning" : node.mastery > 0 ? "text-destructive" : "text-muted-foreground"
-                                    }`}>
+                                    <span
+                                      className={`text-xs font-medium ${
+                                        node.mastery >= 70
+                                          ? "text-success"
+                                          : node.mastery >= 40
+                                            ? "text-warning"
+                                            : node.mastery > 0
+                                              ? "text-destructive"
+                                              : "text-muted-foreground"
+                                      }`}
+                                    >
                                       {node.mastery > 0 ? `${node.mastery}%` : "—"}
                                     </span>
                                   </div>
@@ -426,9 +500,11 @@ export default function StudentAssistantPage() {
                               {/* Current phase action */}
                               {isInProgress && (
                                 <div className="mt-3 flex justify-end">
-                                  <Button size="sm">
-                                    继续学习
-                                    <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                                  <Button asChild size="sm">
+                                    <Link href="/teaching/student/resources">
+                                      继续学习
+                                      <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                                    </Link>
                                   </Button>
                                 </div>
                               )}
@@ -455,9 +531,11 @@ export default function StudentAssistantPage() {
                 <CardContent className="space-y-3">
                   {learningPath.milestones.map((m, i) => (
                     <div key={i} className="flex items-center gap-3">
-                      <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
-                        m.achieved ? "bg-success text-white" : "bg-muted text-muted-foreground"
-                      }`}>
+                      <div
+                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+                          m.achieved ? "bg-success text-white" : "bg-muted text-muted-foreground"
+                        }`}
+                      >
                         {m.achieved ? <CheckCircle2 className="h-4 w-4" /> : <Flag className="h-3.5 w-3.5" />}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -480,22 +558,19 @@ export default function StudentAssistantPage() {
                   <div className="rounded-lg border bg-card p-3">
                     <p className="font-medium text-foreground">优先巩固前置知识</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      第三章掌握率偏低(38%)，建议先回顾第二章"世界模型"中 Dreamer 相关内容，
-                      这是理解任务规划的前置基础。
+                      第三章掌握率偏低(38%)，建议先回顾第二章“世界模型”中 Dreamer 相关内容， 这是理解任务规划的前置基础。
                     </p>
                   </div>
                   <div className="rounded-lg border bg-card p-3">
                     <p className="font-medium text-foreground">增加练习频率</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      当前每周练习量偏少，建议将每周练习次数从 2 次提升至 4 次，
-                      可加速薄弱知识点巩固，预计可提前 7 天完成课程。
+                      当前每周练习量偏少，建议将每周练习次数从 2 次提升至 4 次， 可加速薄弱知识点巩固，预计可提前 7 天完成课程。
                     </p>
                   </div>
                   <div className="rounded-lg border bg-card p-3">
                     <p className="font-medium text-foreground">节奏调整建议</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      根据你近两周的学习速度，保持当前每日 2 小时的学习节奏，
-                      预计可在 {learningPath.estimatedCompletion} 前完成全部课程。
+                      根据你近两周的学习速度，保持当前每日 2 小时的学习节奏， 预计可在 {learningPath.estimatedCompletion} 前完成全部课程。
                     </p>
                   </div>
                 </CardContent>
@@ -506,6 +581,13 @@ export default function StudentAssistantPage() {
 
         {/* Learning Report */}
         <TabsContent value="report" className="mt-6">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground">报告基于最近 30 天学习、练习和问答数据生成</p>
+            <Button variant="outline" size="sm" onClick={() => window.print()}>
+              <Download className="mr-1.5 h-3.5 w-3.5" />
+              打印报告
+            </Button>
+          </div>
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
               <CardHeader>
@@ -534,6 +616,22 @@ export default function StudentAssistantPage() {
                     </div>
                     <p className="mt-1 text-lg font-bold">76%</p>
                   </div>
+                  <div className="rounded-lg border p-3">
+                    <div className="flex items-center gap-2">
+                      <MessageCircle className="h-4 w-4 text-amber-600" />
+                      <span className="text-xs text-muted-foreground">本月问答</span>
+                    </div>
+                    <p className="mt-1 text-lg font-bold">{stats.recentQA.length} 次</p>
+                  </div>
+                  <div className="rounded-lg border p-3">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                      <span className="text-xs text-muted-foreground">今日任务</span>
+                    </div>
+                    <p className="mt-1 text-lg font-bold">
+                      {completedTaskIds.size}/{stats.todayPlan.length}
+                    </p>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -554,10 +652,7 @@ export default function StudentAssistantPage() {
                       <span>{ch.name}</span>
                       <span className={`font-medium ${ch.mastery >= 60 ? "text-success" : "text-warning"}`}>{ch.mastery}%</span>
                     </div>
-                    <Progress
-                      value={ch.mastery}
-                     
-                    />
+                    <Progress value={ch.mastery} />
                   </div>
                 ))}
               </CardContent>
@@ -573,23 +668,35 @@ export default function StudentAssistantPage() {
               <div className="rounded-lg border bg-muted/30 p-4 text-sm leading-relaxed text-muted-foreground">
                 <p className="mb-3">
                   <span className="font-medium text-foreground">学习状态：</span>
-                  整体学习状态良好，连续学习 {stats.currentStreak} 天，学习习惯正在养成。本周学习时长 8.5 小时，
-                  高于班级平均水平。
+                  整体学习状态良好，连续学习 {stats.currentStreak} 天，学习习惯正在养成。本周学习时长 8.5 小时， 高于班级平均水平。
                 </p>
                 <p className="mb-3">
                   <span className="font-medium text-foreground">优势分析：</span>
-                  在环境感知模块表现突出，特别是"相机模型与标定"和"目标检测"掌握率超过 78%，
-                  具备扎实的感知基础。
+                  在环境感知模块表现突出，特别是“相机模型与标定”和“目标检测”掌握率超过 78%， 具备扎实的感知基础。
                 </p>
                 <p className="mb-3">
                   <span className="font-medium text-foreground">改进建议：</span>
-                  第三章任务规划掌握率偏低(38%)，建议：1) 先复习前置知识"世界模型"；
-                  2) 结合仿真工具理解 RRT 算法；3) 增加练习量，当前该章节练习仅完成 3 题。
+                  第三章任务规划掌握率偏低(38%)，建议：1) 先复习前置知识“世界模型”； 2) 结合仿真工具理解 RRT 算法；3)
+                  增加练习量，当前该章节练习仅完成 3 题。
                 </p>
                 <p>
                   <span className="font-medium text-foreground">下周目标：</span>
                   完成第三章 3.1-3.2 的学习，掌握 HTN 和 RRT 核心概念，练习正确率提升至 80%。
                 </p>
+                <div className="mt-4 grid gap-2 border-t pt-4 sm:grid-cols-3">
+                  <div>
+                    <p className="text-xs">学习投入评价</p>
+                    <p className="mt-1 font-medium text-foreground">良好</p>
+                  </div>
+                  <div>
+                    <p className="text-xs">知识掌握评价</p>
+                    <p className="mt-1 font-medium text-foreground">稳步提升</p>
+                  </div>
+                  <div>
+                    <p className="text-xs">综合评语</p>
+                    <p className="mt-1 font-medium text-foreground">保持节奏，重点突破</p>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -608,19 +715,21 @@ export default function StudentAssistantPage() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   {aiTemplates.map((tpl) => {
                     const Icon = iconMap[tpl.icon] || GraduationCap;
-                    const isSelected = selectedTemplate === tpl.id;
+                    const isSelected = preferences.templateId === tpl.id;
                     return (
                       <button
                         key={tpl.id}
-                        onClick={() => setSelectedTemplate(tpl.id)}
-                        className={`rounded-lg border p-4 text-left transition-base ${
-                          isSelected
-                            ? "border-primary bg-primary/5 ring-2 ring-primary/20"
-                            : "hover:border-primary/30 hover:bg-accent/50"
+                        type="button"
+                        onClick={() => updatePreference("templateId", tpl.id)}
+                        aria-pressed={isSelected}
+                        className={`rounded-lg border p-4 text-left transition-colors ${
+                          isSelected ? "border-primary bg-primary/5 ring-2 ring-primary/20" : "hover:border-primary/30 hover:bg-accent/50"
                         }`}
                       >
                         <div className="mb-2 flex items-center justify-between">
-                          <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${isSelected ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                          <div
+                            className={`flex h-9 w-9 items-center justify-center rounded-lg ${isSelected ? "bg-primary text-primary-foreground" : "bg-muted"}`}
+                          >
                             <Icon className="h-4 w-4" />
                           </div>
                           {isSelected && <CheckCircle2 className="h-4 w-4 text-primary" />}
@@ -645,32 +754,107 @@ export default function StudentAssistantPage() {
                 <div>
                   <div className="mb-2 flex items-center justify-between">
                     <Label className="text-sm">教学节奏</Label>
-                    <span className="text-xs text-muted-foreground">{pace < 33 ? "循序渐进" : pace < 66 ? "标准" : "快速"}</span>
+                    <span className="text-xs text-muted-foreground">{getPaceLabel(preferences.pace)}</span>
                   </div>
-                  <Slider value={[pace]} onValueChange={(v) => setPace(v[0])} />
+                  <Slider
+                    value={[preferences.pace]}
+                    onValueChange={(value) => updatePreference("pace", value[0] ?? 50)}
+                    aria-label="教学节奏"
+                  />
                 </div>
                 <div>
                   <div className="mb-2 flex items-center justify-between">
                     <Label className="text-sm">内容深度</Label>
-                    <span className="text-xs text-muted-foreground">{depth < 33 ? "基础" : depth < 66 ? "标准" : "深入"}</span>
+                    <span className="text-xs text-muted-foreground">{getDepthLabel(preferences.depth)}</span>
                   </div>
-                  <Slider value={[depth]} onValueChange={(v) => setDepth(v[0])} />
+                  <Slider
+                    value={[preferences.depth]}
+                    onValueChange={(value) => updatePreference("depth", value[0] ?? 50)}
+                    aria-label="内容深度"
+                  />
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                  <div className="space-y-2">
+                    <Label htmlFor="interaction-style" className="text-sm">
+                      互动方式
+                    </Label>
+                    <Select
+                      value={preferences.interactionStyle}
+                      onValueChange={(value) =>
+                        updatePreference("interactionStyle", value as StudentAssistantPreferences["interactionStyle"])
+                      }
+                    >
+                      <SelectTrigger id="interaction-style" className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="direct">直接讲解</SelectItem>
+                        <SelectItem value="guided">提问引导</SelectItem>
+                        <SelectItem value="socratic">启发思考</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="resource-priority" className="text-sm">
+                      资源呈现
+                    </Label>
+                    <Select
+                      value={preferences.resourcePriority}
+                      onValueChange={(value) =>
+                        updatePreference("resourcePriority", value as StudentAssistantPreferences["resourcePriority"])
+                      }
+                    >
+                      <SelectTrigger id="resource-priority" className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="balanced">均衡呈现</SelectItem>
+                        <SelectItem value="visual">图示优先</SelectItem>
+                        <SelectItem value="paper">论文优先</SelectItem>
+                        <SelectItem value="practice">实验优先</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div className="space-y-3 pt-2">
                   {[
-                    { label: "案例类比", defaultChecked: true },
-                    { label: "图示说明", defaultChecked: true },
-                    { label: "代码示例", defaultChecked: false },
-                    { label: "论文引用", defaultChecked: false },
+                    { key: "analogy" as const, label: "案例类比" },
+                    { key: "diagram" as const, label: "图示说明" },
+                    { key: "code" as const, label: "代码示例" },
+                    { key: "citation" as const, label: "论文引用" },
                   ].map((item) => (
                     <div key={item.label} className="flex items-center justify-between">
-                      <Label className="text-sm">{item.label}</Label>
-                      <Switch defaultChecked={item.defaultChecked} />
+                      <Label htmlFor={`format-${item.key}`} className="text-sm">
+                        {item.label}
+                      </Label>
+                      <Switch
+                        id={`format-${item.key}`}
+                        checked={preferences.formats[item.key]}
+                        onCheckedChange={(checked) =>
+                          updatePreference("formats", {
+                            ...preferences.formats,
+                            [item.key]: checked,
+                          })
+                        }
+                      />
                     </div>
                   ))}
                 </div>
-                <Button className="w-full">
-                  <Sparkles className="mr-1.5 h-4 w-4" />
+                <div className="flex items-center justify-between rounded-md border p-3">
+                  <div>
+                    <Label htmlFor="auto-adapt" className="text-sm">
+                      自动适应
+                    </Label>
+                    <p className="mt-0.5 text-xs text-muted-foreground">允许 AI 根据学习行为微调风格</p>
+                  </div>
+                  <Switch
+                    id="auto-adapt"
+                    checked={preferences.autoAdapt}
+                    onCheckedChange={(checked) => updatePreference("autoAdapt", checked)}
+                  />
+                </div>
+                <Button className="w-full" onClick={savePreferences}>
+                  <Save className="mr-1.5 h-4 w-4" />
                   保存设置
                 </Button>
               </CardContent>
@@ -680,29 +864,46 @@ export default function StudentAssistantPage() {
           {/* Dynamic Evolution Info */}
           <Card className="mt-4 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
             <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" />
-                AI 动态演化
-              </CardTitle>
+              <div className="flex items-center justify-between gap-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  AI 动态演化
+                </CardTitle>
+                <Badge variant={preferences.autoAdapt ? "default" : "secondary"}>{preferences.autoAdapt ? "自动运行" : "已暂停"}</Badge>
+              </div>
               <CardDescription>你的 AI 教师会随学习行为持续调整</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {[
-                  { label: "检测到多次要求'简单一点'", action: "自动降低内容深度，增加生活化案例", time: "3天前" },
-                  { label: "代码相关练习正确率高", action: "增加代码示例与实验环节", time: "1周前" },
-                  { label: "偏好图示解释", action: "回答中优先使用图示和流程图", time: "2周前" },
-                ].map((ev, i) => (
-                  <div key={i} className="rounded-lg border bg-card p-3">
-                    <div className="mb-1 flex items-center gap-2">
-                      <div className="h-1.5 w-1.5 rounded-full bg-success" />
-                      <span className="text-xs text-muted-foreground">{ev.time}</span>
+              {preferences.autoAdapt ? (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {[
+                    {
+                      label: "检测到多次要求“简单一点”",
+                      action: "自动降低内容深度，增加生活化案例",
+                      time: "3天前",
+                    },
+                    {
+                      label: "代码相关练习正确率高",
+                      action: "增加代码示例与实验环节",
+                      time: "1周前",
+                    },
+                    { label: "偏好图示解释", action: "回答中优先使用图示和流程图", time: "2周前" },
+                  ].map((event) => (
+                    <div key={event.label} className="rounded-lg border bg-card p-3">
+                      <div className="mb-1 flex items-center gap-2">
+                        <div className="h-1.5 w-1.5 rounded-full bg-success" />
+                        <span className="text-xs text-muted-foreground">{event.time}</span>
+                      </div>
+                      <p className="text-sm font-medium">{event.label}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{event.action}</p>
                     </div>
-                    <p className="text-sm font-medium">{ev.label}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{ev.action}</p>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
+                  自动适应已暂停。AI 将严格使用你当前保存的教学风格，不再根据行为自动调整。
+                </p>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -710,5 +911,3 @@ export default function StudentAssistantPage() {
     </div>
   );
 }
-
-
