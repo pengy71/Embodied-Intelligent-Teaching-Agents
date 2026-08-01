@@ -1,0 +1,239 @@
+// 教学知识/资源的 Postgres 存储层（无本地文件，面向部署）
+// 复用项目既有 pg 依赖与 DATABASE_URL，复刻 app/api/persistence 的连接模式。
+
+import { Pool, type PoolClient } from 'pg';
+import { seedKnowledgeDoc, type KnowledgeDoc } from '@/lib/teaching/knowledge-doc';
+
+export type ResourceStatus = 'pending' | 'parsing' | 'extracting' | 'ready' | 'failed';
+
+export interface TeachingResource {
+  id: string;
+  name: string;
+  type: string; // pdf/ppt/pptx/docx/txt
+  mime: string;
+  size: number;
+  status: ResourceStatus;
+  parsedText?: string | null;
+  pointIds: string[];
+  error?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+const DEFAULT_COURSE_ID = 'default';
+
+let pool: Pool | undefined;
+
+function getPool(): Pool {
+  if (!pool) {
+    const connectionString = process.env.DATABASE_URL;
+    if (!connectionString) {
+      throw new Error('DATABASE_URL is not configured');
+    }
+    pool = new Pool({ connectionString });
+  }
+  return pool;
+}
+
+export function isTeachingStoreConfigured(): boolean {
+  return Boolean(process.env.DATABASE_URL);
+}
+
+export async function ensureTeachingSchema(): Promise<void> {
+  await getPool().query(`
+    CREATE TABLE IF NOT EXISTS teaching_knowledge (
+      id text PRIMARY KEY,
+      data jsonb NOT NULL,
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS teaching_resources (
+      id text PRIMARY KEY,
+      name text NOT NULL,
+      type text NOT NULL,
+      mime text NOT NULL DEFAULT '',
+      size bigint NOT NULL DEFAULT 0,
+      status text NOT NULL DEFAULT 'pending',
+      parsed_text text,
+      point_ids jsonb NOT NULL DEFAULT '[]'::jsonb,
+      error text,
+      content bytea,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+  `);
+}
+
+/** 读取知识文档；首次空表用种子播种，保留原有 17 章内容。 */
+export async function loadKnowledge(): Promise<KnowledgeDoc> {
+  await ensureTeachingSchema();
+  const p = getPool();
+  const { rows } = await p.query('SELECT data FROM teaching_knowledge WHERE id = $1', [
+    DEFAULT_COURSE_ID,
+  ]);
+  if (rows.length === 0) {
+    const seed = seedKnowledgeDoc();
+    await p.query(
+      'INSERT INTO teaching_knowledge (id, data) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING',
+      [DEFAULT_COURSE_ID, JSON.stringify(seed)],
+    );
+    return seed;
+  }
+  return rows[0].data as KnowledgeDoc;
+}
+
+/** 在事务中锁定知识行并交给回调修改；回调返回新文档（或原地改 doc 后返回 void）。
+ *  同一 client 可用于原子地更新资源状态，保证"合并知识点"与"资源置 ready"同时成败。 */
+export async function withKnowledgeTx<T>(
+  fn: (client: PoolClient, doc: KnowledgeDoc) => Promise<T>,
+): Promise<T> {
+  await ensureTeachingSchema();
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      'SELECT data FROM teaching_knowledge WHERE id = $1 FOR UPDATE',
+      [DEFAULT_COURSE_ID],
+    );
+    let doc: KnowledgeDoc;
+    if (rows.length === 0) {
+      doc = seedKnowledgeDoc();
+      await client.query(
+        'INSERT INTO teaching_knowledge (id, data) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING',
+        [DEFAULT_COURSE_ID, JSON.stringify(doc)],
+      );
+      const r2 = await client.query(
+        'SELECT data FROM teaching_knowledge WHERE id = $1 FOR UPDATE',
+        [DEFAULT_COURSE_ID],
+      );
+      doc = r2.rows[0].data as KnowledgeDoc;
+    } else {
+      doc = rows[0].data as KnowledgeDoc;
+    }
+    const result = await fn(client, doc);
+    await client.query('COMMIT');
+    return result;
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+export async function saveKnowledgeInTx(client: PoolClient, doc: KnowledgeDoc): Promise<void> {
+  await client.query('UPDATE teaching_knowledge SET data = $1, updated_at = now() WHERE id = $2', [
+    JSON.stringify(doc),
+    DEFAULT_COURSE_ID,
+  ]);
+}
+
+export interface ResourcePatch {
+  status?: ResourceStatus;
+  parsedText?: string | null;
+  pointIds?: string[];
+  error?: string | null;
+}
+
+export async function updateResource(
+  id: string,
+  patch: ResourcePatch,
+  client?: PoolClient,
+): Promise<void> {
+  const q = client ?? getPool();
+  const sets: string[] = [];
+  const vals: unknown[] = [];
+  let i = 1;
+  if (patch.status !== undefined) {
+    sets.push(`status = $${i++}`);
+    vals.push(patch.status);
+  }
+  if (patch.parsedText !== undefined) {
+    sets.push(`parsed_text = $${i++}`);
+    vals.push(patch.parsedText);
+  }
+  if (patch.pointIds !== undefined) {
+    sets.push(`point_ids = $${i++}`);
+    vals.push(JSON.stringify(patch.pointIds));
+  }
+  if (patch.error !== undefined) {
+    sets.push(`error = $${i++}`);
+    vals.push(patch.error);
+  }
+  if (sets.length === 0) return;
+  sets.push(`updated_at = now()`);
+  vals.push(id);
+  await q.query(`UPDATE teaching_resources SET ${sets.join(', ')} WHERE id = $${i}`, vals);
+}
+
+export async function createResource(input: {
+  id: string;
+  name: string;
+  type: string;
+  mime: string;
+  size: number;
+  content: Buffer;
+}): Promise<TeachingResource> {
+  await ensureTeachingSchema();
+  const now = new Date().toISOString();
+  await getPool().query(
+    `INSERT INTO teaching_resources (id, name, type, mime, size, status, point_ids, content, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, 'pending', '[]'::jsonb, $6, $7, $7)`,
+    [input.id, input.name, input.type, input.mime, input.size, input.content, now],
+  );
+  const r = await getResource(input.id);
+  if (!r) throw new Error('failed to read back created resource');
+  return r;
+}
+
+export async function listResources(): Promise<TeachingResource[]> {
+  await ensureTeachingSchema();
+  const { rows } = await getPool().query(
+    `SELECT id, name, type, mime, size, status, parsed_text, point_ids, error, created_at, updated_at
+     FROM teaching_resources ORDER BY created_at DESC`,
+  );
+  return rows.map(rowToResource);
+}
+
+export async function getResource(id: string): Promise<TeachingResource | null> {
+  await ensureTeachingSchema();
+  const { rows } = await getPool().query(
+    `SELECT id, name, type, mime, size, status, parsed_text, point_ids, error, created_at, updated_at
+     FROM teaching_resources WHERE id = $1`,
+    [id],
+  );
+  return rows.length ? rowToResource(rows[0]) : null;
+}
+
+export async function getResourceContent(
+  id: string,
+): Promise<{ buffer: Buffer; mime: string; name: string; size: number } | null> {
+  await ensureTeachingSchema();
+  const { rows } = await getPool().query(
+    'SELECT content, mime, name, size FROM teaching_resources WHERE id = $1',
+    [id],
+  );
+  if (!rows.length) return null;
+  return {
+    buffer: rows[0].content as Buffer,
+    mime: rows[0].mime ?? '',
+    name: rows[0].name,
+    size: Number(rows[0].size ?? 0),
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToResource(r: any): TeachingResource {
+  return {
+    id: r.id,
+    name: r.name,
+    type: r.type,
+    mime: r.mime ?? '',
+    size: Number(r.size ?? 0),
+    status: r.status as ResourceStatus,
+    parsedText: r.parsed_text ?? null,
+    pointIds: Array.isArray(r.point_ids) ? r.point_ids : [],
+    error: r.error ?? null,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+}
