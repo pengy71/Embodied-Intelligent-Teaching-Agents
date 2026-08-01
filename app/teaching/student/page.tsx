@@ -22,6 +22,7 @@ import {
   type StudentAssistantPreferences,
 } from "@/lib/teaching/student-assistant";
 import Link from "next/link";
+import { KnowledgeEnhanced } from "@/components/teaching/knowledge-enhanced";
 import { toast } from "sonner";
 import {
   Calendar,
@@ -110,6 +111,8 @@ export default function StudentAssistantPage() {
           刷新
         </Button>
       </PageHeader>
+
+      <KnowledgeEnhanced />
 
       {/* Quick Stats */}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
