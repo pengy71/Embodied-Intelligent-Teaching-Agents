@@ -60,6 +60,13 @@ export async function ensureTeachingSchema(): Promise<void> {
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now()
     );
+    CREATE TABLE IF NOT EXISTS teaching_student_progress (
+      student_id text NOT NULL,
+      point_id text NOT NULL,
+      status text NOT NULL,
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY (student_id, point_id)
+    );
   `);
 }
 
@@ -220,6 +227,72 @@ export async function getResourceContent(
     size: Number(rows[0].size ?? 0),
   };
 }
+
+
+// === 学生学习进度 ===
+
+export type StudentProgressStatus = "learning" | "learned";
+
+export interface StudentProgressEntry {
+  pointId: string;
+  status: StudentProgressStatus;
+  updatedAt: string;
+}
+
+export async function getProgress(studentId: string): Promise<StudentProgressEntry[]> {
+  await ensureTeachingSchema();
+  const { rows } = await getPool().query(
+    "SELECT point_id, status, updated_at FROM teaching_student_progress WHERE student_id = $1",
+    [studentId],
+  );
+  return rows.map(
+    (r: { point_id: string; status: string; updated_at: string }) => ({
+      pointId: r.point_id,
+      status: r.status as StudentProgressStatus,
+      updatedAt: r.updated_at,
+    }),
+  );
+}
+
+export async function upsertProgress(
+  studentId: string,
+  pointId: string,
+  status: StudentProgressStatus,
+): Promise<void> {
+  await ensureTeachingSchema();
+  await getPool().query(
+    "INSERT INTO teaching_student_progress (student_id, point_id, status, updated_at) VALUES ($1, $2, $3, now()) ON CONFLICT (student_id, point_id) DO UPDATE SET status = EXCLUDED.status, updated_at = now()",
+    [studentId, pointId, status],
+  );
+}
+
+export interface PointResourceExcerpt {
+  id: string;
+  name: string;
+  type: string;
+  excerpt: string;
+}
+
+export async function getResourcesForPoint(
+  pointId: string,
+  maxChars = 4000,
+  limit = 3,
+): Promise<PointResourceExcerpt[]> {
+  await ensureTeachingSchema();
+  const { rows } = await getPool().query(
+    "SELECT id, name, type, parsed_text FROM teaching_resources WHERE status = $1 AND parsed_text IS NOT NULL AND point_ids @> $2::jsonb ORDER BY updated_at DESC LIMIT $3",
+    ["ready", JSON.stringify([pointId]), limit],
+  );
+  return rows.map(
+    (r: { id: string; name: string; type: string; parsed_text: string | null }) => ({
+      id: r.id,
+      name: r.name,
+      type: r.type,
+      excerpt: (r.parsed_text ?? "").slice(0, maxChars),
+    }),
+  );
+}
+
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToResource(r: any): TeachingResource {

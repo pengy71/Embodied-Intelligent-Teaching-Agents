@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ChevronRight,
   Network,
@@ -9,7 +9,9 @@ import {
   FlaskConical,
   Lightbulb,
   ArrowRight,
+  BookOpen,
   Layers,
+  Loader2,
   CornerDownRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -25,6 +27,9 @@ import {
   type KnowledgeDoc,
 } from '@/lib/teaching/knowledge-doc';
 import type { KnowledgeChapter, KnowledgeSection } from '@/lib/teaching/knowledge-system';
+import { useChapterContent } from '@/lib/teaching/use-chapter-content';
+import { ChapterContent } from '@/components/teaching/knowledge/chapter-content';
+import { extractPointContent } from '@/lib/teaching/chapter-extract';
 
 const PARTS = [
   '第一部分：导论与生物基础',
@@ -231,11 +236,12 @@ function ChapterRow({
 
       {isExpanded && (
         <div className="border-t">
-          {chapter.sections.map((section) => (
+          {chapter.sections.map((section, sectionIndex) => (
             <SectionRow
               key={section.id}
               section={section}
               chapterNumber={chapter.number}
+              sectionNumber={sectionIndex + 1}
               isExpanded={expandedSections.has(section.id)}
               selectedPoint={selectedPoint}
               onToggle={() => onToggleSection(section.id)}
@@ -251,6 +257,7 @@ function ChapterRow({
 function SectionRow({
   section,
   chapterNumber,
+  sectionNumber,
   isExpanded,
   selectedPoint,
   onToggle,
@@ -258,6 +265,7 @@ function SectionRow({
 }: {
   section: KnowledgeSection;
   chapterNumber: number;
+  sectionNumber: number;
   isExpanded: boolean;
   selectedPoint: string | null;
   onToggle: () => void;
@@ -277,7 +285,7 @@ function SectionRow({
           )}
         />
         <span className="text-sm font-medium">
-          {chapterNumber}.{section.title}
+          {chapterNumber}.{sectionNumber} {section.title}
         </span>
         <Badge variant="outline" className="ml-auto text-[10px]">
           {section.points.length}
@@ -318,11 +326,75 @@ function SectionRow({
 function StructureSkeleton() {
   return (
     <div className="grid gap-4 lg:grid-cols-5">
-      <div className="lg:col-span-3 flex h-[600px] items-center justify-center rounded-xl border bg-slate-50/50 text-sm text-muted-foreground">
+      <div className="lg:col-span-2 flex h-[600px] items-center justify-center rounded-xl border bg-slate-50/50 text-sm text-muted-foreground">
         知识结构加载中…
       </div>
-      <div className="lg:col-span-2 h-[400px] rounded-xl border bg-slate-50/50" />
+      <div className="lg:col-span-3 h-[600px] rounded-xl border bg-slate-50/50" />
     </div>
+  );
+}
+
+function PointContentPanel({
+  pointId,
+  doc,
+  onSelect,
+}: {
+  pointId: string;
+  doc: KnowledgeDoc;
+  onSelect: (id: string) => void;
+}) {
+  const point = getPoint(doc, pointId);
+  const chapter = getPointChapter(doc, pointId);
+  const { content, isLoading, error } = useChapterContent(chapter?.id);
+  const pointMarkdown = useMemo(
+    () => (content ? extractPointContent(content, pointId) : null),
+    [content, pointId],
+  );
+
+  return (
+    <ScrollArea className="h-[600px] pr-3">
+      <div className="space-y-3">
+        <div className="rounded-lg border bg-card p-4">
+          <div className="mb-3 flex items-center gap-2 border-b pb-2">
+            <BookOpen className="h-4 w-4 shrink-0 text-primary" />
+            <span className="text-sm font-semibold">
+              {chapter ? `第${chapter.number}章 · ${chapter.title}` : '章节原文'}
+            </span>
+            {point && (
+              <Badge variant="secondary" className="ml-auto max-w-[50%] truncate text-[10px]">
+                已选：{point.title}
+              </Badge>
+            )}
+          </div>
+
+          {isLoading ? (
+            <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              正在加载知识点原文…
+            </div>
+          ) : error ? (
+            <p className="py-8 text-sm text-destructive">{error.message}</p>
+          ) : pointMarkdown ? (
+            <ChapterContent content={pointMarkdown} />
+          ) : content ? (
+            <ChapterContent content={content} />
+          ) : (
+            <p className="py-8 text-sm text-muted-foreground">该章节暂无原文内容。</p>
+          )}
+        </div>
+
+        <details open className="group rounded-lg border bg-card p-3">
+          <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-medium">
+            <CornerDownRight className="h-4 w-4 text-muted-foreground" />
+            知识点详情：关联关系与易错点
+            <ChevronRight className="ml-auto h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
+          </summary>
+          <div className="mt-3 border-t pt-3">
+            <PointDetail pointId={pointId} doc={doc} onSelect={onSelect} />
+          </div>
+        </details>
+      </div>
+    </ScrollArea>
   );
 }
 
@@ -350,7 +422,7 @@ export function KnowledgeStructure({ doc, onSelectPoint }: { doc?: KnowledgeDoc;
 
   return (
     <div className="grid gap-4 lg:grid-cols-5">
-      <div className="lg:col-span-3">
+      <div className="lg:col-span-2">
         <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
           <Layers className="h-4 w-4" />
           五级结构：章节 -&gt; 小节 -&gt; 知识点 -&gt; 关联知识点 -&gt; 易错点
@@ -411,17 +483,15 @@ export function KnowledgeStructure({ doc, onSelectPoint }: { doc?: KnowledgeDoc;
         </ScrollArea>
       </div>
 
-      <div className="lg:col-span-2">
+      <div className="lg:col-span-3">
         <div className="sticky top-0">
           {selectedPoint && hasSelected ? (
-            <div className="rounded-lg border bg-card p-4">
-              <PointDetail pointId={selectedPoint} doc={doc} onSelect={setSelectedPoint} />
-            </div>
+            <PointContentPanel pointId={selectedPoint} doc={doc} onSelect={setSelectedPoint} />
           ) : (
-            <div className="flex h-[400px] items-center justify-center rounded-lg border-2 border-dashed">
+            <div className="flex h-[600px] items-center justify-center rounded-lg border-2 border-dashed">
               <div className="text-center text-sm text-muted-foreground">
                 <Lightbulb className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                选择左侧知识点查看关联关系与易错点
+                选择左侧知识点查看原文内容
               </div>
             </div>
           )}

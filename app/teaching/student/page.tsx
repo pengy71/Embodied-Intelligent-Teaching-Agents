@@ -255,7 +255,7 @@ export default function StudentAssistantPage() {
                     size="lg"
                     className="h-12 px-8 text-base font-semibold shadow-lg shadow-primary/25 transition-all hover:shadow-xl hover:shadow-primary/30"
                   >
-                    <Link href="/teaching/student/resources">
+                    <Link href="/teaching/student/learn">
                       <ChevronRight className="mr-1 h-5 w-5" />
                       开始今日学习
                     </Link>

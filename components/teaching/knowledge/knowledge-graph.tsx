@@ -41,11 +41,12 @@ interface PointNodeData {
   node: KnowledgePointNode;
   dimmed: boolean;
   selected: boolean;
+  learned: boolean;
 }
 
 function PointNode({ data }: NodeProps) {
   const d = data as unknown as PointNodeData;
-  const { node, dimmed, selected } = d;
+  const { node, dimmed, selected, learned } = d;
   const { point, chapter, module: mod } = node;
   return (
     <div
@@ -75,6 +76,7 @@ function PointNode({ data }: NodeProps) {
       >
         {point.title}
       </span>
+      {learned && <span className="flex-shrink-0 text-[10px] font-bold text-emerald-500">&#10003;</span>}
       <Handle
         type="source"
         position={Position.Right}
@@ -94,7 +96,7 @@ function GraphSkeleton() {
   );
 }
 
-export function KnowledgeGraph({ doc }: { doc?: KnowledgeDoc } = {}) {
+export function KnowledgeGraph({ doc, learnedPointIds, onLearn }: { doc?: KnowledgeDoc; learnedPointIds?: Set<string>; onLearn?: (pointId: string) => void } = {}) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hiddenModules, setHiddenModules] = useState<Set<string>>(new Set());
 
@@ -147,6 +149,7 @@ export function KnowledgeGraph({ doc }: { doc?: KnowledgeDoc } = {}) {
             node,
             dimmed: highlightSet !== null && !isNeighbor,
             selected: selectedId === node.point.id,
+            learned: learnedPointIds?.has(node.point.id) ?? false,
           } as unknown as Record<string, unknown>,
         });
       });
@@ -330,6 +333,9 @@ export function KnowledgeGraph({ doc }: { doc?: KnowledgeDoc } = {}) {
           </div>
           {selectedNode.point.summary && (
             <p className="mt-1.5 text-sm text-muted-foreground">{selectedNode.point.summary}</p>
+          )}
+          {onLearn && (
+            <button type="button" onClick={() => onLearn(selectedNode.point.id)} className="mt-2 inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90">开始学习此知识点</button>
           )}
           <div className="mt-2 space-y-1.5 text-xs">
             {selectedDetail.prereqs.length > 0 && (

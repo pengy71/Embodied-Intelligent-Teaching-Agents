@@ -40,7 +40,7 @@ export function TeachingSidebar({ role, roleLabel, userName, userDesc }: Sidebar
   return (
     <>
       <header className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b bg-background/95 px-4 backdrop-blur md:hidden">
-        <Link href="/teaching" className="flex min-w-0 items-center gap-2.5">
+        <Link href="/" className="flex min-w-0 items-center gap-2.5">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10">
             <Brain className="h-4 w-4 text-primary" />
           </div>
@@ -106,7 +106,7 @@ export function TeachingSidebar({ role, roleLabel, userName, userDesc }: Sidebar
         {/* Back to main */}
         <div className="border-t p-4">
           <Button asChild variant="ghost" className="w-full justify-start gap-3">
-            <Link href="/teaching">
+            <Link href="/">
               <Brain className="h-4 w-4" />
               返回教学首页
             </Link>

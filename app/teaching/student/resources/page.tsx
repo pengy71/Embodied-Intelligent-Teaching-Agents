@@ -11,6 +11,8 @@ import { Input } from '@/components/ui/input';
 import { KnowledgeStructure } from '@/components/teaching/knowledge/knowledge-structure';
 import { useKnowledge } from '@/lib/teaching/use-knowledge';
 import { trackLearningEvent } from '@/lib/teaching/track-event';
+import { useRouter } from 'next/navigation';
+import { useStudentProgress } from '@/lib/teaching/use-learn';
 import {
   Search,
   FileText,
@@ -60,6 +62,11 @@ const STATUS_LABEL: Record<string, string> = {
 export default function StudentResourcesPage() {
   const [activeTab, setActiveTab] = useState('knowledge-base');
   const { doc, stats } = useKnowledge();
+  const router = useRouter();
+  const { progress } = useStudentProgress();
+  const learnedIds = new Set(
+    Object.values(progress).filter((p) => p.status === 'learned').map((p) => p.pointId),
+  );
   const [materials, setMaterials] = useState<ResourceItem[]>([]);
   const [materialsLoading, setMaterialsLoading] = useState(false);
   const [query, setQuery] = useState('');
@@ -185,7 +192,11 @@ export default function StudentResourcesPage() {
 
         {/* Knowledge Graph */}
         <TabsContent value="knowledge-graph" className="mt-6">
-          <KnowledgeGraph doc={doc ?? undefined} />
+          <KnowledgeGraph
+            doc={doc ?? undefined}
+            learnedPointIds={learnedIds}
+            onLearn={(id) => router.push(`/teaching/student/learn?point=${id}`)}
+          />
         </TabsContent>
 
         {/* Course Materials (real uploaded resources) */}
