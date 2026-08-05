@@ -28,6 +28,16 @@ function eventScores(events: TeachingLearningEvent[]): number[] {
     .filter((score): score is number => typeof score === 'number' && Number.isFinite(score));
 }
 
+function countEventsByType(events: TeachingLearningEvent[]) {
+  return {
+    studyCount: events.filter((event) => event.eventType === 'study').length,
+    practiceCount: events.filter((event) => event.eventType === 'practice').length,
+    qaCount: events.filter((event) => event.eventType === 'qa').length,
+    quizCount: events.filter((event) => event.eventType === 'quiz').length,
+    reviewCount: events.filter((event) => event.eventType === 'review').length,
+  };
+}
+
 export function masteryForNode(
   node: TeachingKnowledgeNode,
   events: TeachingLearningEvent[],
@@ -136,7 +146,7 @@ export async function buildStudentSnapshot(courseId: string, studentId: string) 
   const overallProgress = clampPercent(average(Object.values(mastery)));
   const estimatedDaysLeft = Math.max(
     3,
-    Math.round((100 - overallProgress) / Math.max(1, student.preferences.pace === '快速' ? 3 : 2)),
+    Math.round((100 - overallProgress) / Math.max(1, student.preferences.pace === '快' ? 3 : 2)),
   );
   const estimatedCompletion = formatISODate(addDays(new Date(), estimatedDaysLeft));
 
@@ -203,6 +213,7 @@ export async function buildTeacherSnapshot(courseId: string) {
   for (const event of events) {
     eventsByStudent.set(event.studentId, [...(eventsByStudent.get(event.studentId) ?? []), event]);
   }
+  const activity = countEventsByType(events);
 
   const studentRows: TeacherAnalyticsStudent[] = students.map((student) => {
     const studentEvents = eventsByStudent.get(student.id) ?? [];
@@ -213,6 +224,10 @@ export async function buildTeacherSnapshot(courseId: string) {
         100,
     );
     const qaCount = studentEvents.filter((event) => event.eventType === 'qa').length;
+    const practiceCount = studentEvents.filter((event) => event.eventType === 'practice').length;
+    const studyCount = studentEvents.filter((event) => event.eventType === 'study').length;
+    const quizCount = studentEvents.filter((event) => event.eventType === 'quiz').length;
+    const reviewCount = studentEvents.filter((event) => event.eventType === 'review').length;
     const quizScores = eventScores(studentEvents.filter((event) => event.eventType === 'quiz'));
     const testScore = clampPercent(quizScores.length ? average(quizScores) : mastery);
     const status = classifyStudent(student, mastery, progress);
@@ -220,8 +235,13 @@ export async function buildTeacherSnapshot(courseId: string) {
       id: student.id,
       name: student.name,
       progress,
+      completionRate: progress,
       mastery,
       qaCount,
+      practiceCount,
+      studyCount,
+      quizCount,
+      reviewCount,
       testScore,
       ...status,
     };
@@ -279,12 +299,34 @@ export async function buildTeacherSnapshot(courseId: string) {
     warningCount: warningStudents.length,
   };
 
+  const completionDistribution = [
+    { label: '80-100%', value: studentRows.filter((student) => student.completionRate >= 80).length },
+    {
+      label: '60-79%',
+      value: studentRows.filter(
+        (student) => student.completionRate >= 60 && student.completionRate < 80,
+      ).length,
+    },
+    {
+      label: '40-59%',
+      value: studentRows.filter(
+        (student) => student.completionRate >= 40 && student.completionRate < 60,
+      ).length,
+    },
+    { label: '<40%', value: studentRows.filter((student) => student.completionRate < 40).length },
+  ];
+
   return {
     courseId,
     nodes,
     students,
     events,
     summary,
+    activity: {
+      totalEvents: events.length,
+      ...activity,
+    },
+    completionDistribution,
     chapters,
     studentRows,
     hotQuestions,

@@ -4,7 +4,7 @@ import { nanoid } from 'nanoid';
 import { callLLM } from '@/lib/ai/llm';
 import { resolveModel } from '@/lib/server/resolve-model';
 
-import { saveTeachingAgentRun } from './db';
+import { getLatestTeachingAgentRun, saveTeachingAgentRun } from './db';
 import { buildStudentSnapshot, buildTeacherSnapshot } from './metrics';
 import type {
   StudentGuidanceResult,
@@ -39,6 +39,27 @@ function requireString(value: unknown, fallback: string): string {
   return typeof value === 'string' && value.trim() ? value.trim() : fallback;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+const STUDENT_GUIDANCE_SCHEMA_VERSION = 2;
+const TEACHER_ANALYTICS_SCHEMA_VERSION = 2;
+
+function isStudentGuidanceCache(value: unknown): value is StudentGuidanceResult {
+  return isRecord(value) && value.schemaVersion === STUDENT_GUIDANCE_SCHEMA_VERSION;
+}
+
+function isTeacherAnalyticsCache(value: unknown): value is TeacherAnalyticsResult {
+  return (
+    isRecord(value) &&
+    value.schemaVersion === TEACHER_ANALYTICS_SCHEMA_VERSION &&
+    isRecord(value.activity) &&
+    Array.isArray(value.completionDistribution) &&
+    Array.isArray(value.students)
+  );
+}
+
 async function saveRun(params: {
   courseId: string;
   studentId?: string;
@@ -63,6 +84,17 @@ export async function runStudentGuidanceAgent(params: {
   studentId: string;
   force?: boolean;
 }): Promise<StudentGuidanceResult> {
+  if (!params.force) {
+    const cached = await getLatestTeachingAgentRun<unknown>({
+      courseId: params.courseId,
+      studentId: params.studentId,
+      agentType: 'student-guidance',
+    });
+    if (isStudentGuidanceCache(cached)) {
+      return cached;
+    }
+  }
+
   const snapshot = await buildStudentSnapshot(params.courseId, params.studentId);
   const {
     model,
@@ -134,6 +166,7 @@ ${JSON.stringify(promptInput, null, 2)}
   }));
 
   const guidance: StudentGuidanceResult = {
+    schemaVersion: STUDENT_GUIDANCE_SCHEMA_VERSION,
     generatedAt: new Date().toISOString(),
     modelString,
     stats: snapshot.stats,
@@ -207,6 +240,16 @@ export async function runTeacherAnalyticsAgent(params: {
   courseId: string;
   force?: boolean;
 }): Promise<TeacherAnalyticsResult> {
+  if (!params.force) {
+    const cached = await getLatestTeachingAgentRun<unknown>({
+      courseId: params.courseId,
+      agentType: 'teacher-analytics',
+    });
+    if (isTeacherAnalyticsCache(cached)) {
+      return cached;
+    }
+  }
+
   const snapshot = await buildTeacherSnapshot(params.courseId);
   const {
     model,
@@ -216,6 +259,8 @@ export async function runTeacherAnalyticsAgent(params: {
 
   const promptInput = {
     summary: snapshot.summary,
+    activity: snapshot.activity,
+    completionDistribution: snapshot.completionDistribution,
     chapters: snapshot.chapters,
     students: snapshot.studentRows,
     hotQuestions: snapshot.hotQuestions,
@@ -250,10 +295,13 @@ ${JSON.stringify(promptInput, null, 2)}
   const weakest = snapshot.errorDistribution[0];
 
   const analytics: TeacherAnalyticsResult = {
+    schemaVersion: TEACHER_ANALYTICS_SCHEMA_VERSION,
     generatedAt: new Date().toISOString(),
     modelString,
     summary: snapshot.summary,
+    activity: snapshot.activity,
     radar: snapshot.chapters.map((chapter) => ({ name: chapter.title, mastery: chapter.mastery })),
+    completionDistribution: snapshot.completionDistribution,
     chapters: snapshot.chapters,
     students: snapshot.studentRows,
     hotQuestions: snapshot.hotQuestions,

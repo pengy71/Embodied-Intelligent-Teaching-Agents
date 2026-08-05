@@ -70,6 +70,7 @@ export interface StudentGuidancePhase {
 }
 
 export interface StudentGuidanceResult {
+  schemaVersion: number;
   generatedAt: string;
   modelString: string;
   stats: {
@@ -107,14 +108,20 @@ export interface TeacherAnalyticsStudent {
   id: string;
   name: string;
   progress: number;
+  completionRate: number;
   mastery: number;
   qaCount: number;
+  practiceCount: number;
+  studyCount: number;
+  quizCount: number;
+  reviewCount: number;
   testScore: number;
   status: '优秀' | '良好' | '及格' | '预警';
   reason?: string;
 }
 
 export interface TeacherAnalyticsResult {
+  schemaVersion: number;
   generatedAt: string;
   modelString: string;
   summary: {
@@ -124,7 +131,16 @@ export interface TeacherAnalyticsResult {
     averageMastery: number;
     warningCount: number;
   };
+  activity: {
+    totalEvents: number;
+    studyCount: number;
+    practiceCount: number;
+    qaCount: number;
+    quizCount: number;
+    reviewCount: number;
+  };
   radar: Array<{ name: string; mastery: number }>;
+  completionDistribution: Array<{ label: string; value: number }>;
   chapters: Array<{
     id: string;
     title: string;
