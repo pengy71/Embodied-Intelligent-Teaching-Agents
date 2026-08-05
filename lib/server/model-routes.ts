@@ -129,6 +129,8 @@ export const LLM_STAGES = [
   'generate-classroom',
   'web-search-query-rewrite',
   'maic-agent',
+  'teaching-student-guidance',
+  'teaching-teacher-analytics',
 ] as const;
 
 export type LlmStage = (typeof LLM_STAGES)[number];

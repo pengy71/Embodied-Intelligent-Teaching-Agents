@@ -186,18 +186,12 @@ DEFAULT_MODEL=xiaomi:mimo-v2.5-pro
 
 Use `https://token-plan-sgp.xiaomimimo.com/v1` or `https://token-plan-ams.xiaomimimo.com/v1` for the Singapore or Europe Token Plan clusters.
 
-GLM (Zhipu) quick examples:
+GLM (Zhipu) quick example:
 
 ```env
-# China (default)
 GLM_API_KEY=...
-GLM_BASE_URL=https://open.bigmodel.cn/api/paas/v4
-
-# International (z.ai)
-GLM_API_KEY=...
-GLM_BASE_URL=https://api.z.ai/api/paas/v4
-
-DEFAULT_MODEL=glm:glm-5.1
+GLM_BASE_URL=https://chatapi.weixin.qq.com/openai/v1
+DEFAULT_MODEL=glm:glm-5.2
 ```
 
 > **Recommended model:** **Gemini 3 Flash** — best balance of quality and speed. For highest quality (at slower speed), try **Gemini 3.1 Pro**.

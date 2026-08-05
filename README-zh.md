@@ -189,15 +189,9 @@ DEFAULT_MODEL=xiaomi:mimo-v2.5-pro
 智谱 GLM 快速示例：
 
 ```env
-# 国内站（默认）
 GLM_API_KEY=...
-GLM_BASE_URL=https://open.bigmodel.cn/api/paas/v4
-
-# 国际站（z.ai）
-GLM_API_KEY=...
-GLM_BASE_URL=https://api.z.ai/api/paas/v4
-
-DEFAULT_MODEL=glm:glm-5.1
+GLM_BASE_URL=https://chatapi.weixin.qq.com/openai/v1
+DEFAULT_MODEL=glm:glm-5.2
 ```
 
 > **推荐模型：** **Gemini 3 Flash** — 效果与速度的最佳平衡。追求最高质量可选 **Gemini 3.1 Pro**（速度较慢）。
