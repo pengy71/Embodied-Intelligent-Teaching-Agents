@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useQA } from "@/lib/teaching/use-qa";
+import { personalStats } from "@/lib/mock-data";
 import {
   Send,
   Sparkles,
@@ -22,49 +22,34 @@ import {
   FileText,
   Lightbulb,
   History,
-  Loader2,
 } from "lucide-react";
 
 interface Message {
   id: number;
   role: "user" | "assistant";
   content: string;
-  sources?: Array<{
-    pointId: string;
-    title: string;
-    chapter: string;
-    pageReference?: string;
-  }>;
-  relatedPoints?: Array<{
-    id: string;
-    title: string;
-    summary?: string;
-    chapter?: string;
-  }>;
+  source?: string;
   time: string;
 }
 
 export default function StudentQAPage() {
   const [activeTab, setActiveTab] = useState("quick");
   const [input, setInput] = useState("");
-  const [teachingStyle, setTeachingStyle] = useState("引导启发型");
-  const [depth, setDepth] = useState("标准");
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
       role: "assistant",
-      content: "你好！我是你的具身智能课程 AI 答疑教师。有什么课程相关的问题都可以问我会优先从教材原文中为你找到答案。",
+      content: "你好！我是你的具身智能课程 AI 答疑教师。有什么课程相关的问题都可以问我，我会优先从教材原文中为你找到答案。",
       time: "刚刚",
     },
   ]);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { isLoading, error, askQuestion } = useQA();
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleSend = async () => {
+  const handleSend = () => {
     if (!input.trim()) return;
     const userMsg: Message = {
       id: Date.now(),
@@ -73,22 +58,19 @@ export default function StudentQAPage() {
       time: "刚刚",
     };
     setMessages((prev) => [...prev, userMsg]);
-    const question = input;
     setInput("");
 
-    // 调用知识库API
-    const result = await askQuestion(question, { teachingStyle, depth });
-    if (result) {
+    // Simulate AI response
+    setTimeout(() => {
       const aiMsg: Message = {
         id: Date.now() + 1,
         role: "assistant",
-        content: result.answer,
-        sources: result.sources,
-        relatedPoints: result.relatedPoints,
+        content: `关于"${input}"的问题，让我从教材中为你查找答案。\n\nRRT（Rapidly-exploring Random Tree）是一种基于随机采样的路径规划算法。其核心思想是通过在配置空间中随机采样并逐步扩展搜索树来探索可行路径。\n\n关键特性：\n1. 概率完备性：只要存在可行路径，随着采样次数增加，找到路径的概率趋近于1\n2. 偏好探索：搜索树会倾向探索未到达的区域\n3. 适合高维空间：相比网格法更适合高自由度机器人\n\n建议你接下来学习 PRM 算法作为对比，两者在多查询和单查询场景下各有优势。`,
+        source: "教材 P.128 - Motion Planning",
         time: "刚刚",
       };
       setMessages((prev) => [...prev, aiMsg]);
-    }
+    }, 1500);
   };
 
   const suggestedQuestions = [
@@ -96,247 +78,201 @@ export default function StudentQAPage() {
     "RRT 和 PRM 有什么区别？",
     "PPO 算法的 clip 机制是什么？",
     "世界模型在具身智能中的作用？",
-    "卡尔曼滤波的基本原理？",
-    "模仿学习与强化学习的区别？",
   ];
 
   return (
     <div>
-      <PageHeader title="智能答疑" description="基于课程知识库的智能问答，提供教材溯源" />
+      <PageHeader title="答疑中心" description="随时向 AI 提问，获取准确、可溯源的课程知识解答" />
 
-      <div className="grid gap-6 lg:grid-cols-4">
-        {/* Chat Area */}
-        <div className="lg:col-span-3">
-          <Card className="h-[calc(100vh-200px)]">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="quick">快速提问</TabsTrigger>
+          <TabsTrigger value="history">历史问答</TabsTrigger>
+        </TabsList>
+
+        {/* Quick Question - Chat Interface */}
+        <TabsContent value="quick" className="mt-6">
+          <div className="grid gap-4 lg:grid-cols-3">
+            {/* Chat Area */}
+            <Card className="lg:col-span-2 flex flex-col" style={{ height: "600px" }}>
+              <CardHeader className="border-b pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
                     <Bot className="h-5 w-5 text-primary" />
-                    AI 答疑教师
-                  </CardTitle>
-                  <CardDescription>基于课程知识库的智能问答</CardDescription>
+                  </div>
+                  <div>
+                    <CardTitle className="text-base">AI 答疑教师</CardTitle>
+                    <CardDescription className="flex items-center gap-1.5">
+                      <span className="h-1.5 w-1.5 rounded-full bg-success" />
+                      在线 · 引导启发型
+                    </CardDescription>
+                  </div>
                 </div>
-                <Badge variant="outline" className="text-xs">
-                  知识库已连接
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="flex h-[calc(100%-120px)] flex-col">
-              {/* Messages */}
-              <ScrollArea className="flex-1 pr-4">
+              </CardHeader>
+
+              <ScrollArea className="flex-1 p-4">
                 <div className="space-y-4">
                   {messages.map((msg) => (
                     <div
                       key={msg.id}
-                      className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                      className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}
                     >
-                      {msg.role === "assistant" && (
-                        <Avatar className="h-8 w-8 bg-primary/10">
-                          <AvatarFallback className="text-primary">
+                      <Avatar className="h-8 w-8 shrink-0">
+                        {msg.role === "user" ? (
+                          <AvatarFallback className="bg-primary/10 text-primary text-xs">你</AvatarFallback>
+                        ) : (
+                          <AvatarFallback className="bg-primary text-primary-foreground">
                             <Bot className="h-4 w-4" />
                           </AvatarFallback>
-                        </Avatar>
-                      )}
-                      <div
-                        className={`max-w-[80%] rounded-lg p-3 ${
-                          msg.role === "user"
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-muted"
-                        }`}
-                      >
-                        <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                        
-                        {/* 教材溯源 */}
-                        {msg.sources && msg.sources.length > 0 && (
-                          <div className="mt-3 pt-3 border-t border-border/50">
-                            <p className="text-xs font-medium text-muted-foreground mb-2">教材溯源：</p>
-                            <div className="space-y-1">
-                              {msg.sources.map((source, idx) => (
-                                <div key={idx} className="flex items-center gap-2 text-xs">
-                                  <FileText className="h-3 w-3 text-blue-500" />
-                                  <span className="font-medium">{source.title}</span>
-                                  <span className="text-muted-foreground">•</span>
-                                  <span className="text-muted-foreground">{source.chapter}</span>
-                                  {source.pageReference && (
-                                    <>
-                                      <span className="text-muted-foreground">•</span>
-                                      <span className="text-muted-foreground">{source.pageReference}</span>
-                                    </>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
+                        )}
+                      </Avatar>
+                      <div className={`max-w-[75%] ${msg.role === "user" ? "items-end" : "items-start"}`}>
+                        <div
+                          className={`rounded-lg p-3 text-sm ${
+                            msg.role === "user"
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-muted"
+                          }`}
+                        >
+                          <p className="whitespace-pre-line">{msg.content}</p>
+                        </div>
+                        {msg.source && (
+                          <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <FileText className="h-3 w-3" />
+                            <span>溯源：{msg.source}</span>
                           </div>
                         )}
-                        
-                        {/* 相关知识点 */}
-                        {msg.relatedPoints && msg.relatedPoints.length > 0 && (
-                          <div className="mt-3 pt-3 border-t border-border/50">
-                            <p className="text-xs font-medium text-muted-foreground mb-2">相关知识点：</p>
-                            <div className="flex flex-wrap gap-1">
-                              {msg.relatedPoints.map((point) => (
-                                <Badge key={point.id} variant="secondary" className="text-xs">
-                                  {point.title}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        
-                        <p className="mt-2 text-xs text-muted-foreground">{msg.time}</p>
+                        <span className="mt-1 block text-xs text-muted-foreground">{msg.time}</span>
                       </div>
-                      {msg.role === "user" && (
-                        <Avatar className="h-8 w-8 bg-primary">
-                          <AvatarFallback className="text-primary-foreground">
-                            <User className="h-4 w-4" />
-                          </AvatarFallback>
-                        </Avatar>
-                      )}
                     </div>
                   ))}
-                  {isLoading && (
-                    <div className="flex gap-3 justify-start">
-                      <Avatar className="h-8 w-8 bg-primary/10">
-                        <AvatarFallback className="text-primary">
-                          <Bot className="h-4 w-4" />
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="max-w-[80%] rounded-lg p-3 bg-muted">
-                        <div className="flex items-center gap-2">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          <span className="text-sm">正在从知识库中检索...</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                   <div ref={scrollRef} />
                 </div>
               </ScrollArea>
 
-              {/* Input */}
-              <div className="mt-4 flex gap-2">
-                <Textarea
-                  placeholder="输入你的问题..."
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSend();
-                    }
-                  }}
-                  className="min-h-[60px] flex-1"
-                  disabled={isLoading}
-                />
-                <Button onClick={handleSend} disabled={!input.trim() || isLoading}>
-                  {isLoading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
+              {/* Input Area */}
+              <div className="border-t p-4">
+                <div className="flex gap-2">
+                  <Textarea
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="输入你的问题，AI 会从教材原文中为你找到答案..."
+                    className="min-h-[44px] resize-none"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSend();
+                      }
+                    }}
+                  />
+                  <Button size="icon" className="h-11 w-11 shrink-0" onClick={handleSend}>
                     <Send className="h-4 w-4" />
-                  )}
-                </Button>
+                  </Button>
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  按 Enter 发送 · Shift+Enter 换行 · 回答 100% 可溯源教材原文
+                </p>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            </Card>
 
-        {/* Sidebar */}
-        <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">答疑偏好</CardTitle>
-              <CardDescription>答疑 Agent 会根据你的画像调整表达方式</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <select className="w-full rounded-md border bg-background px-3 py-2 text-sm" value={teachingStyle} onChange={(event) => setTeachingStyle(event.target.value)}>
-                <option>严谨型</option>
-                <option>引导启发型</option>
-                <option>通俗易懂型</option>
-                <option>实践应用型</option>
-              </select>
-              <select className="w-full rounded-md border bg-background px-3 py-2 text-sm" value={depth} onChange={(event) => setDepth(event.target.value)}>
-                <option>基础</option>
-                <option>标准</option>
-                <option>深入</option>
-              </select>
-            </CardContent>
-          </Card>
+            {/* Suggestions Sidebar */}
+            <div className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-sm">
+                    <Lightbulb className="h-4 w-4 text-primary" />
+                    推荐问题
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {suggestedQuestions.map((q, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setInput(q)}
+                      className="flex w-full items-center gap-2 rounded-md border p-2.5 text-left text-sm transition-base hover:border-primary/30 hover:bg-accent/50"
+                    >
+                      <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      <span className="flex-1">{q}</span>
+                    </button>
+                  ))}
+                </CardContent>
+              </Card>
 
-          {/* Suggested Questions */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">常见问题</CardTitle>
-              <CardDescription>点击快速提问</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {suggestedQuestions.map((q, i) => (
-                <Button
-                  key={i}
-                  variant="outline"
-                  className="w-full justify-start text-left h-auto py-2"
-                  onClick={() => {
-                    setInput(q);
-                  }}
-                >
-                  <Lightbulb className="mr-2 h-4 w-4 shrink-0 text-amber-500" />
-                  <span className="text-sm">{q}</span>
-                </Button>
-              ))}
-            </CardContent>
-          </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-sm">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    AI 答疑特性
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {[
+                    { icon: FileText, text: "100% 教材原文溯源", desc: "每个回答标注教材出处" },
+                    { icon: BookOpen, text: "知识图谱关联推荐", desc: "推荐前置/后续知识" },
+                    { icon: Lightbulb, text: "个性化风格解答", desc: "匹配你的学习偏好" },
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-start gap-2 rounded-md p-2">
+                      <item.icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                      <div>
+                        <p className="text-sm font-medium">{item.text}</p>
+                        <p className="text-xs text-muted-foreground">{item.desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
 
-          {/* Recent History */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">最近提问</CardTitle>
-              <CardDescription>查看历史问答</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {messages
-                .filter((m) => m.role === "user")
-                .slice(-3)
-                .reverse()
-                .map((msg) => (
-                  <div
-                    key={msg.id}
-                    className="flex items-start gap-2 rounded-md border p-2.5 hover:bg-muted/50 cursor-pointer"
-                    onClick={() => setInput(msg.content)}
-                  >
-                    <History className="mt-0.5 h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm line-clamp-2">{msg.content}</span>
+        {/* History Q&A */}
+        <TabsContent value="history" className="mt-6">
+          <div className="mb-4 flex items-center gap-3">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 pl-9 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                placeholder="搜索历史问答..."
+              />
+            </div>
+            <Badge variant="secondary">共 {personalStats.recentQA.length} 条记录</Badge>
+          </div>
+
+          <div className="space-y-3">
+            {personalStats.recentQA.map((qa) => (
+              <Card key={qa.id} className="transition-base hover:border-primary/30 hover:shadow-sm">
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                      <History className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-medium">{qa.question}</h4>
+                      </div>
+                      <p className="mt-1.5 text-sm text-muted-foreground line-clamp-2">{qa.preview}</p>
+                      <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {qa.time}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <FileText className="h-3 w-3" />
+                          溯源：{qa.source}
+                        </span>
+                      </div>
+                    </div>
+                    <Button variant="outline" size="sm">
+                      查看详情
+                    </Button>
                   </div>
-                ))}
-            </CardContent>
-          </Card>
-
-          {/* Knowledge Stats */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">知识库状态</CardTitle>
-              <CardDescription>课程知识覆盖</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">知识章节</span>
-                <span className="font-medium">17 章</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">知识要点</span>
-                <span className="font-medium">120+ 个</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">关联关系</span>
-                <span className="font-medium">200+ 条</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">易错点</span>
-                <span className="font-medium">15 个</span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
+

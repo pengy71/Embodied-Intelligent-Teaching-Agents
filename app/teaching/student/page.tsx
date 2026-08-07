@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -21,8 +21,8 @@ import {
   normalizeStudentAssistantPreferences,
   type StudentAssistantPreferences,
 } from "@/lib/teaching/student-assistant";
+import type { StudentGuidanceResult } from "@/lib/teaching/types";
 import Link from "next/link";
-import { KnowledgeEnhanced } from "@/components/teaching/knowledge-enhanced";
 import { toast } from "sonner";
 import {
   Calendar,
@@ -58,6 +58,9 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
 
 export default function StudentAssistantPage() {
   const [activeTab, setActiveTab] = useState("today");
+  const [guidance, setGuidance] = useState<StudentGuidanceResult | null>(null);
+  const [isLoadingGuidance, setIsLoadingGuidance] = useState(true);
+  const [guidanceError, setGuidanceError] = useState<string | null>(null);
   const [preferences, setPreferences] = useState<StudentAssistantPreferences>(() => {
     if (typeof window === "undefined") return defaultStudentAssistantPreferences;
 
@@ -69,17 +72,62 @@ export default function StudentAssistantPage() {
     }
   });
   const [completedTaskIds, setCompletedTaskIds] = useState(
-    () => new Set(personalStats.todayPlan.filter((task) => task.done).map((task) => task.id)),
+    () => new Set(personalStats.todayPlan.filter((task) => task.done).map((task) => String(task.id))),
   );
-  const [lastUpdated, setLastUpdated] = useState("刚刚");
+  const [lastUpdated, setLastUpdated] = useState("正在生成");
 
-  const stats = personalStats;
+  const stats = guidance?.stats ?? {
+    studyDays: personalStats.studyDays,
+    totalHours: personalStats.totalHours,
+    currentStreak: personalStats.currentStreak,
+    masteredPoints: personalStats.masteredPoints,
+    totalPoints: personalStats.totalPoints,
+    overallProgress: Math.round((personalStats.masteredPoints / personalStats.totalPoints) * 100),
+  };
+  const todayPlan = guidance?.todayPlan ?? personalStats.todayPlan.map((task) => ({
+    ...task,
+    id: String(task.id),
+    reason: "",
+    targetNodeId: "",
+  }));
+  const weakPoints = guidance?.weakPoints.map((point) => point.title) ?? personalStats.weakPoints;
+  const path = guidance?.path ?? learningPath;
+
+  const loadGuidance = async (force = false) => {
+    setIsLoadingGuidance(true);
+    setGuidanceError(null);
+    try {
+      const response = await fetch("/api/teaching/student-guidance", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ studentId: "2024001", force }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "个性导学 agent 调用失败");
+      }
+      const result = data.result as StudentGuidanceResult;
+      setGuidance(result);
+      setLastUpdated(new Date(result.generatedAt).toLocaleString("zh-CN"));
+      setCompletedTaskIds(new Set(result.todayPlan.filter((task) => task.done).map((task) => task.id)));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "个性导学 agent 调用失败";
+      setGuidanceError(message);
+      toast.error(message);
+    } finally {
+      setIsLoadingGuidance(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadGuidance(false);
+  }, []);
 
   const updatePreference = <K extends keyof StudentAssistantPreferences>(key: K, value: StudentAssistantPreferences[K]) => {
     setPreferences((current) => ({ ...current, [key]: value }));
   };
 
-  const toggleTask = (taskId: number, checked: boolean) => {
+  const toggleTask = (taskId: string, checked: boolean) => {
     setCompletedTaskIds((current) => {
       const next = new Set(current);
       if (checked) next.add(taskId);
@@ -90,8 +138,8 @@ export default function StudentAssistantPage() {
   };
 
   const refreshRecommendation = () => {
-    setLastUpdated("刚刚更新");
-    toast.success("已根据当前学习进度更新建议");
+    void loadGuidance(true);
+    toast.success("正在调用个性导学 agent 重新规划");
   };
 
   const savePreferences = () => {
@@ -106,13 +154,19 @@ export default function StudentAssistantPage() {
   return (
     <div>
       <PageHeader title="AI学习助手" description="AI 结合学习进度和知识掌握情况，智能推荐学习内容">
-        <Button variant="outline" size="sm" onClick={refreshRecommendation}>
-          <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-          刷新
+        <Button variant="outline" size="sm" onClick={refreshRecommendation} disabled={isLoadingGuidance}>
+          <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${isLoadingGuidance ? "animate-spin" : ""}`} />
+          {isLoadingGuidance ? "生成中" : "刷新"}
         </Button>
       </PageHeader>
 
-      <KnowledgeEnhanced />
+      {guidanceError && (
+        <Card className="mb-4 border-destructive/30 bg-destructive/5">
+          <CardContent className="py-3 text-sm text-destructive">
+            个性导学 agent 暂时不可用：{guidanceError}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Quick Stats */}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
@@ -190,11 +244,11 @@ export default function StudentAssistantPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-sm leading-relaxed text-foreground">
-                  你在<span className="font-medium text-primary">卡尔曼滤波</span>上的掌握率已达到 85%，表现很好！ 不过在
-                  <span className="font-medium text-destructive">Motion Planning</span>
-                  方面还有提升空间。 今天建议先巩固卡尔曼滤波相关概念，然后进入第三章 HTN 层级任务网络的学习。
-                  记得完成配套练习来检验学习效果。
+                  {guidance?.guidanceMessage ?? "正在结合学习画像、知识图谱和数据库学习记录生成导学建议。"}
                 </p>
+                {guidance?.modelString && (
+                  <p className="mt-3 text-xs text-muted-foreground">模型：{guidance.modelString}</p>
+                )}
                 <div className="mt-6">
                   <Button
                     asChild
@@ -217,7 +271,7 @@ export default function StudentAssistantPage() {
                 <CardDescription>建议优先巩固</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
-                {stats.weakPoints.map((p, i) => (
+                {weakPoints.map((p, i) => (
                   <div key={i} className="flex items-center gap-2 rounded-md border p-2.5">
                     <span className="flex h-6 w-6 items-center justify-center rounded-full bg-destructive/10 text-xs font-medium text-destructive">
                       {i + 1}
@@ -240,8 +294,8 @@ export default function StudentAssistantPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {stats.todayPlan.map((task, idx) => {
-                  const isDone = completedTaskIds.has(task.id);
+                {todayPlan.map((task, idx) => {
+                  const isDone = completedTaskIds.has(String(task.id));
                   const taskHref = task.type === "新知" ? "/teaching/student/resources" : "/teaching/student/practice";
 
                   return (
@@ -253,7 +307,7 @@ export default function StudentAssistantPage() {
                     >
                       <Checkbox
                         checked={isDone}
-                        onCheckedChange={(checked) => toggleTask(task.id, checked === true)}
+                        onCheckedChange={(checked) => toggleTask(String(task.id), checked === true)}
                         aria-label={`${isDone ? "恢复" : "完成"}${task.title}`}
                       />
                       <div className="flex-1">
@@ -300,7 +354,7 @@ export default function StudentAssistantPage() {
                   <Map className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{learningPath.overallProgress}%</p>
+                  <p className="text-2xl font-bold">{path.overallProgress}%</p>
                   <p className="text-xs text-muted-foreground">整体进度</p>
                 </div>
               </CardContent>
@@ -311,7 +365,7 @@ export default function StudentAssistantPage() {
                   <Timer className="h-5 w-5 text-amber-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{learningPath.estimatedDaysLeft}天</p>
+                  <p className="text-2xl font-bold">{path.estimatedDaysLeft}天</p>
                   <p className="text-xs text-muted-foreground">预计剩余时间</p>
                 </div>
               </CardContent>
@@ -322,7 +376,7 @@ export default function StudentAssistantPage() {
                   <Calendar className="h-5 w-5 text-emerald-600" />
                 </div>
                 <div>
-                  <p className="text-lg font-bold">{learningPath.estimatedCompletion}</p>
+                  <p className="text-lg font-bold">{path.estimatedCompletion}</p>
                   <p className="text-xs text-muted-foreground">预计完成日期</p>
                 </div>
               </CardContent>
@@ -333,7 +387,7 @@ export default function StudentAssistantPage() {
                   <Flag className="h-5 w-5 text-purple-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{learningPath.currentPhase}</p>
+                  <p className="text-2xl font-bold">{path.currentPhase}</p>
                   <p className="text-xs text-muted-foreground">当前阶段</p>
                 </div>
               </CardContent>
@@ -364,7 +418,7 @@ export default function StudentAssistantPage() {
                   <div className="absolute left-[19px] top-2 bottom-2 w-0.5 bg-border" />
 
                   <div className="space-y-6">
-                    {learningPath.phases.map((phase, idx) => {
+                    {path.phases.map((phase, idx) => {
                       const isCompleted = phase.status === "completed";
                       const isInProgress = phase.status === "in_progress";
                       const isNotStarted = phase.status === "not_started";
@@ -532,7 +586,7 @@ export default function StudentAssistantPage() {
                   <CardDescription>关键节点与预计达成时间</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {learningPath.milestones.map((m, i) => (
+                  {path.milestones.map((m, i) => (
                     <div key={i} className="flex items-center gap-3">
                       <div
                         className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
@@ -573,7 +627,7 @@ export default function StudentAssistantPage() {
                   <div className="rounded-lg border bg-card p-3">
                     <p className="font-medium text-foreground">节奏调整建议</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      根据你近两周的学习速度，保持当前每日 2 小时的学习节奏， 预计可在 {learningPath.estimatedCompletion} 前完成全部课程。
+                      根据你近两周的学习速度，保持当前每日 2 小时的学习节奏， 预计可在 {path.estimatedCompletion} 前完成全部课程。
                     </p>
                   </div>
                 </CardContent>
@@ -624,7 +678,7 @@ export default function StudentAssistantPage() {
                       <MessageCircle className="h-4 w-4 text-amber-600" />
                       <span className="text-xs text-muted-foreground">本月问答</span>
                     </div>
-                    <p className="mt-1 text-lg font-bold">{stats.recentQA.length} 次</p>
+                    <p className="mt-1 text-lg font-bold">{personalStats.recentQA.length} 次</p>
                   </div>
                   <div className="rounded-lg border p-3">
                     <div className="flex items-center gap-2">
@@ -632,7 +686,7 @@ export default function StudentAssistantPage() {
                       <span className="text-xs text-muted-foreground">今日任务</span>
                     </div>
                     <p className="mt-1 text-lg font-bold">
-                      {completedTaskIds.size}/{stats.todayPlan.length}
+                      {completedTaskIds.size}/{todayPlan.length}
                     </p>
                   </div>
                 </div>
@@ -668,7 +722,41 @@ export default function StudentAssistantPage() {
               <CardDescription>AI 自动生成的个人学习分析</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="rounded-lg border bg-muted/30 p-4 text-sm leading-relaxed text-muted-foreground">
+              {guidance?.report && (
+                <div className="rounded-lg border bg-muted/30 p-4 text-sm leading-relaxed text-muted-foreground">
+                  <p className="mb-3">
+                    <span className="font-medium text-foreground">学习状态：</span>
+                    {guidance.report.status}
+                  </p>
+                  <p className="mb-3">
+                    <span className="font-medium text-foreground">优势分析：</span>
+                    {guidance.report.strengths}
+                  </p>
+                  <p className="mb-3">
+                    <span className="font-medium text-foreground">改进建议：</span>
+                    {guidance.report.improvements}
+                  </p>
+                  <p>
+                    <span className="font-medium text-foreground">下周目标：</span>
+                    {guidance.report.nextWeekGoal}
+                  </p>
+                  <div className="mt-4 grid gap-2 border-t pt-4 sm:grid-cols-3">
+                    <div>
+                      <p className="text-xs">学习投入评价</p>
+                      <p className="mt-1 font-medium text-foreground">{guidance.report.investmentLabel}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs">知识掌握评价</p>
+                      <p className="mt-1 font-medium text-foreground">{guidance.report.masteryLabel}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs">综合评语</p>
+                      <p className="mt-1 font-medium text-foreground">{guidance.report.overallComment}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div className={`rounded-lg border bg-muted/30 p-4 text-sm leading-relaxed text-muted-foreground ${guidance?.report ? "hidden" : ""}`}>
                 <p className="mb-3">
                   <span className="font-medium text-foreground">学习状态：</span>
                   整体学习状态良好，连续学习 {stats.currentStreak} 天，学习习惯正在养成。本周学习时长 8.5 小时， 高于班级平均水平。
@@ -879,19 +967,13 @@ export default function StudentAssistantPage() {
             <CardContent>
               {preferences.autoAdapt ? (
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {[
+                  {(guidance?.adaptationEvents ?? [
                     {
-                      label: "检测到多次要求“简单一点”",
-                      action: "自动降低内容深度，增加生活化案例",
-                      time: "3天前",
+                      label: "等待个性导学 agent 读取学习事件",
+                      action: "生成后会显示基于行为数据的风格调整",
+                      time: "当前",
                     },
-                    {
-                      label: "代码相关练习正确率高",
-                      action: "增加代码示例与实验环节",
-                      time: "1周前",
-                    },
-                    { label: "偏好图示解释", action: "回答中优先使用图示和流程图", time: "2周前" },
-                  ].map((event) => (
+                  ]).map((event) => (
                     <div key={event.label} className="rounded-lg border bg-card p-3">
                       <div className="mb-1 flex items-center gap-2">
                         <div className="h-1.5 w-1.5 rounded-full bg-success" />

@@ -1,108 +1,76 @@
-'use client';
+"use client";
 
-import { useRef, useState } from 'react';
-import dynamic from 'next/dynamic';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   BookOpen,
-  Network,
   Upload,
+  FileText,
+  Video,
+  Link2,
   Plus,
   Settings,
-  FileText,
+  ChevronRight,
   Layers,
-  GitBranch,
-  AlertTriangle,
-  Box,
-  Loader2,
-} from 'lucide-react';
-import { KnowledgeStructure } from '@/components/teaching/knowledge/knowledge-structure';
-import { useKnowledge } from '@/lib/teaching/use-knowledge';
-import { useResources } from '@/lib/teaching/use-resources';
-import type { ResourceStatus } from '@/lib/teaching/store';
+  Network,
+} from "lucide-react";
 
-const KnowledgeGraph = dynamic(
-  () => import('@/components/teaching/knowledge/knowledge-graph').then((m) => m.KnowledgeGraph),
+const chapters = [
   {
-    ssr: false,
-    loading: () => (
-      <div className="flex h-[600px] items-center justify-center rounded-xl border bg-slate-50/50 text-sm text-muted-foreground">
-        知识图谱加载中…
-      </div>
-    ),
+    id: 1,
+    title: "第一章 具身智能概述",
+    sections: 4,
+    knowledgePoints: 12,
+    status: "completed",
   },
-);
+  {
+    id: 2,
+    title: "第二章 环境感知与世界模型",
+    sections: 5,
+    knowledgePoints: 18,
+    status: "in-progress",
+  },
+  {
+    id: 3,
+    title: "第三章 任务规划与决策",
+    sections: 4,
+    knowledgePoints: 15,
+    status: "in-progress",
+  },
+  {
+    id: 4,
+    title: "第四章 运动规划与控制",
+    sections: 6,
+    knowledgePoints: 22,
+    status: "pending",
+  },
+  {
+    id: 5,
+    title: "第五章 多智能体协同",
+    sections: 4,
+    knowledgePoints: 16,
+    status: "pending",
+  },
+];
 
-function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / 1024 / 1024).toFixed(1)} MB`;
-}
-
-function StatusBadge({ status }: { status: ResourceStatus }) {
-  if (status === 'ready') {
-    return (
-      <Badge variant="outline" className="text-emerald-600 border-emerald-200">
-        已索引
-      </Badge>
-    );
-  }
-  if (status === 'failed') {
-    return (
-      <Badge variant="outline" className="text-destructive border-destructive/30">
-        失败
-      </Badge>
-    );
-  }
-  return (
-    <Badge variant="outline" className="text-amber-600 border-amber-200">
-      解析中
-    </Badge>
-  );
-}
+const resources = [
+  { name: "具身智能导论.pdf", type: "pdf", size: "15.2 MB" },
+  { name: "环境感知PPT.pptx", type: "ppt", size: "28.5 MB" },
+  { name: "路径规划算法详解.pdf", type: "pdf", size: "8.7 MB" },
+  { name: "实验指导手册.pdf", type: "pdf", size: "5.3 MB" },
+];
 
 export default function TeacherCoursePage() {
-  const { doc, stats, revalidate: revalidateKnowledge } = useKnowledge();
-  const { resources, revalidate: revalidateResources } = useResources();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-
-  const statCards = [
-    { label: '章节', value: stats?.chapterCount ?? 0, icon: BookOpen },
-    { label: '小节', value: stats?.sectionCount ?? 0, icon: Layers },
-    { label: '知识点', value: stats?.pointCount ?? 0, icon: Box },
-    { label: '关联关系', value: stats?.relationCount ?? 0, icon: GitBranch },
-    { label: '易错点', value: stats?.mistakeCount ?? 0, icon: AlertTriangle },
-  ];
-
-  async function handleUpload(file: File) {
-    setUploading(true);
-    try {
-      const fd = new FormData();
-      fd.append('file', file);
-      const res = await fetch('/api/teaching/resources', { method: 'POST', body: fd });
-      if (!res.ok) {
-        const j = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(j.error || `上传失败 (${res.status})`);
-      }
-      await revalidateResources();
-      void revalidateKnowledge();
-    } catch (e) {
-      alert(e instanceof Error ? e.message : '上传失败');
-    } finally {
-      setUploading(false);
-    }
-  }
-
   return (
     <div className="flex flex-col gap-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">课程建设</h1>
-          <p className="text-muted-foreground">管理课程知识体系、构建知识图谱、上传教学资源</p>
+          <p className="text-muted-foreground">
+            管理课程知识体系、上传教学资源、构建知识图谱
+          </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm">
@@ -116,116 +84,154 @@ export default function TeacherCoursePage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        {statCards.map((s) => (
-          <Card key={s.label}>
-            <CardContent className="flex items-center gap-3 p-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <s.icon className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="text-2xl font-bold leading-none">{s.value}</div>
-                <div className="text-xs text-muted-foreground">{s.label}</div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <Tabs defaultValue="structure" className="w-full">
-        <TabsList>
-          <TabsTrigger value="structure" className="gap-1.5">
-            <Layers className="h-4 w-4" />
-            知识结构
-          </TabsTrigger>
-          <TabsTrigger value="graph" className="gap-1.5">
-            <Network className="h-4 w-4" />
-            知识图谱
-          </TabsTrigger>
-          <TabsTrigger value="resources" className="gap-1.5">
-            <Upload className="h-4 w-4" />
-            教学资源
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="structure" className="mt-4">
-          <KnowledgeStructure doc={doc ?? undefined} />
-        </TabsContent>
-
-        <TabsContent value="graph" className="mt-4">
-          <KnowledgeGraph doc={doc ?? undefined} />
-        </TabsContent>
-
-        <TabsContent value="resources" className="mt-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <Upload className="h-5 w-5 text-primary" />
-                    教学资源管理
-                  </CardTitle>
-                  <CardDescription>
-                    上传教材/PPT/文档，AI 自动解析并抽取知识点、构建知识索引（MVP 支持 PDF/TXT/MD）
-                  </CardDescription>
-                </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".pdf,.txt,.md,.markdown,.json,.csv"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) void handleUpload(file);
-                    e.target.value = '';
-                  }}
-                />
-                <Button
-                  size="sm"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Course Structure */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Layers className="h-5 w-5 text-primary" />
+              课程知识结构
+            </CardTitle>
+            <CardDescription>
+              五级知识体系：章节 → 小节 → 知识点 → 关联知识点 → 易错点
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {chapters.map((chapter) => (
+                <div
+                  key={chapter.id}
+                  className="flex items-center gap-4 rounded-lg border p-4 hover:bg-accent/50 cursor-pointer transition-colors"
                 >
-                  {uploading ? (
-                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Upload className="mr-1.5 h-3.5 w-3.5" />
-                  )}
-                  {uploading ? '上传中…' : '上传资源'}
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary font-semibold">
+                    {chapter.id}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-medium">{chapter.title}</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {chapter.sections} 小节 · {chapter.knowledgePoints} 个知识点
+                    </p>
+                  </div>
+                  <Badge
+                    variant={
+                      chapter.status === "completed"
+                        ? "default"
+                        : chapter.status === "in-progress"
+                        ? "secondary"
+                        : "outline"
+                    }
+                  >
+                    {chapter.status === "completed"
+                      ? "已完成"
+                      : chapter.status === "in-progress"
+                      ? "进行中"
+                      : "待建设"}
+                  </Badge>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Knowledge Graph Preview */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Network className="h-5 w-5 text-primary" />
+              知识图谱
+            </CardTitle>
+            <CardDescription>课程知识关联网络</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex h-48 items-center justify-center rounded-lg border-2 border-dashed bg-muted/50">
+              <div className="text-center">
+                <Network className="mx-auto h-12 w-12 text-muted-foreground/50" />
+                <p className="mt-2 text-sm text-muted-foreground">
+                  已构建 83 个知识点节点
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  156 条关联关系
+                </p>
+                <Button variant="outline" size="sm" className="mt-3">
+                  查看完整图谱
                 </Button>
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {resources && resources.length > 0 ? (
-                  resources.map((r) => (
-                    <div
-                      key={r.id}
-                      className="flex items-center gap-3 rounded-lg border p-3 hover:bg-accent/50"
-                    >
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                        <FileText className="h-4 w-4 text-primary" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{r.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatBytes(r.size)}
-                          {r.pointIds.length > 0 ? ` · ${r.pointIds.length} 知识点` : ''}
-                        </p>
-                        {r.error && <p className="text-xs text-destructive truncate">{r.error}</p>}
-                      </div>
-                      <StatusBadge status={r.status} />
-                    </div>
-                  ))
-                ) : (
-                  <p className="py-6 text-center text-sm text-muted-foreground">
-                    暂无资源，上传 PDF/TXT/MD 后将自动抽取知识点并同步到知识库与图谱
-                  </p>
-                )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Resource Upload */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Upload className="h-5 w-5 text-primary" />
+                  教学资源管理
+                </CardTitle>
+                <CardDescription>
+                  上传教材、PPT、视频等课程资源，AI自动解析并构建知识索引
+                </CardDescription>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+              <Button size="sm">
+                <Upload className="mr-1.5 h-3.5 w-3.5" />
+                上传资源
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {resources.map((resource, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-3 rounded-lg border p-3 hover:bg-accent/50"
+                >
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                    {resource.type === "pdf" ? (
+                      <FileText className="h-4 w-4 text-primary" />
+                    ) : resource.type === "ppt" ? (
+                      <FileText className="h-4 w-4 text-amber-600" />
+                    ) : (
+                      <Video className="h-4 w-4 text-emerald-600" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{resource.name}</p>
+                    <p className="text-xs text-muted-foreground">{resource.size}</p>
+                  </div>
+                  <Badge variant="outline">已索引</Badge>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Quick Actions */}
+        <Card>
+          <CardHeader>
+            <CardTitle>快速操作</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Button variant="outline" className="w-full justify-start gap-2">
+              <Plus className="h-4 w-4" />
+              添加知识点
+            </Button>
+            <Button variant="outline" className="w-full justify-start gap-2">
+              <Link2 className="h-4 w-4" />
+              建立关联关系
+            </Button>
+            <Button variant="outline" className="w-full justify-start gap-2">
+              <Network className="h-4 w-4" />
+              生成知识图谱
+            </Button>
+            <Button variant="outline" className="w-full justify-start gap-2">
+              <FileText className="h-4 w-4" />
+              导出课程大纲
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
