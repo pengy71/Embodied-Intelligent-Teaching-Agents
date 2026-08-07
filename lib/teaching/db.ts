@@ -1,12 +1,13 @@
 import { Pool, type QueryResult } from 'pg';
 
+import { defaultLearningEvents, defaultStudents, defaultTeachingCourse } from './seed';
+import { loadKnowledge } from './store';
 import {
-  defaultKnowledgeEdges,
-  defaultKnowledgeNodes,
-  defaultLearningEvents,
-  defaultStudents,
-  defaultTeachingCourse,
-} from './seed';
+  buildGraphEdges,
+  getAllPoints,
+  getPointChapter,
+  getPointSection,
+} from './knowledge-doc';
 import type {
   TeachingAgentType,
   TeachingKnowledgeEdge,
@@ -55,32 +56,6 @@ async function createSchema(): Promise<void> {
   `);
 
   await query(`
-    CREATE TABLE IF NOT EXISTS teaching_knowledge_nodes (
-      id text PRIMARY KEY,
-      course_id text NOT NULL REFERENCES teaching_courses(id) ON DELETE CASCADE,
-      title text NOT NULL,
-      chapter_id text NOT NULL,
-      chapter_title text NOT NULL,
-      section_id text NOT NULL,
-      section_title text NOT NULL,
-      level text NOT NULL,
-      dependencies jsonb NOT NULL DEFAULT '[]'::jsonb,
-      mastery_baseline integer NOT NULL DEFAULT 0,
-      order_index integer NOT NULL DEFAULT 0
-    )
-  `);
-
-  await query(`
-    CREATE TABLE IF NOT EXISTS teaching_knowledge_edges (
-      course_id text NOT NULL REFERENCES teaching_courses(id) ON DELETE CASCADE,
-      source_id text NOT NULL REFERENCES teaching_knowledge_nodes(id) ON DELETE CASCADE,
-      target_id text NOT NULL REFERENCES teaching_knowledge_nodes(id) ON DELETE CASCADE,
-      relation text NOT NULL,
-      PRIMARY KEY (course_id, source_id, target_id, relation)
-    )
-  `);
-
-  await query(`
     CREATE TABLE IF NOT EXISTS teaching_students (
       id text PRIMARY KEY,
       course_id text NOT NULL REFERENCES teaching_courses(id) ON DELETE CASCADE,
@@ -97,7 +72,7 @@ async function createSchema(): Promise<void> {
       course_id text NOT NULL REFERENCES teaching_courses(id) ON DELETE CASCADE,
       student_id text NOT NULL REFERENCES teaching_students(id) ON DELETE CASCADE,
       event_type text NOT NULL,
-      knowledge_node_id text NOT NULL REFERENCES teaching_knowledge_nodes(id) ON DELETE CASCADE,
+      knowledge_node_id text NOT NULL,
       score numeric,
       duration_minutes integer NOT NULL DEFAULT 0,
       payload jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -132,6 +107,17 @@ async function createSchema(): Promise<void> {
     CREATE INDEX IF NOT EXISTS teaching_agent_runs_lookup_idx
       ON teaching_agent_runs(course_id, student_id, agent_type, created_at DESC)
   `);
+
+  // Knowledge content now lives in teaching_knowledge (KnowledgeDoc, managed by
+  // lib/teaching/store). Drop the legacy per-node tables and the learning_events
+  // foreign key that pointed at them, so learning events can reference KnowledgeDoc
+  // point ids directly. Idempotent: no-ops on a fresh database.
+  await query(`
+    ALTER TABLE teaching_learning_events
+      DROP CONSTRAINT IF EXISTS teaching_learning_events_knowledge_node_id_fkey
+  `);
+  await query(`DROP TABLE IF EXISTS teaching_knowledge_edges`);
+  await query(`DROP TABLE IF EXISTS teaching_knowledge_nodes`);
 }
 
 async function seedDefaults(): Promise<void> {
@@ -146,52 +132,6 @@ async function seedDefaults(): Promise<void> {
     `,
     [defaultTeachingCourse.id, defaultTeachingCourse.title, defaultTeachingCourse.description],
   );
-
-  for (const node of defaultKnowledgeNodes) {
-    await query(
-      `
-        INSERT INTO teaching_knowledge_nodes (
-          id, course_id, title, chapter_id, chapter_title, section_id, section_title,
-          level, dependencies, mastery_baseline, order_index
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11)
-        ON CONFLICT (id) DO UPDATE
-        SET title = EXCLUDED.title,
-            chapter_id = EXCLUDED.chapter_id,
-            chapter_title = EXCLUDED.chapter_title,
-            section_id = EXCLUDED.section_id,
-            section_title = EXCLUDED.section_title,
-            level = EXCLUDED.level,
-            dependencies = EXCLUDED.dependencies,
-            mastery_baseline = EXCLUDED.mastery_baseline,
-            order_index = EXCLUDED.order_index
-      `,
-      [
-        node.id,
-        defaultTeachingCourse.id,
-        node.title,
-        node.chapterId,
-        node.chapterTitle,
-        node.sectionId,
-        node.sectionTitle,
-        node.level,
-        JSON.stringify(node.dependencies),
-        node.masteryBaseline,
-        node.orderIndex,
-      ],
-    );
-  }
-
-  for (const edge of defaultKnowledgeEdges) {
-    await query(
-      `
-        INSERT INTO teaching_knowledge_edges (course_id, source_id, target_id, relation)
-        VALUES ($1, $2, $3, $4)
-        ON CONFLICT DO NOTHING
-      `,
-      [defaultTeachingCourse.id, edge.source, edge.target, edge.relation],
-    );
-  }
 
   for (const student of defaultStudents) {
     await query(
@@ -260,21 +200,6 @@ export async function ensureTeachingDatabase(): Promise<void> {
   await globalState[INIT_KEY];
 }
 
-function toKnowledgeNode(row: Record<string, unknown>): TeachingKnowledgeNode {
-  return {
-    id: String(row.id),
-    title: String(row.title),
-    chapterId: String(row.chapter_id),
-    chapterTitle: String(row.chapter_title),
-    sectionId: String(row.section_id),
-    sectionTitle: String(row.section_title),
-    level: row.level as TeachingKnowledgeNode['level'],
-    dependencies: Array.isArray(row.dependencies) ? (row.dependencies as string[]) : [],
-    masteryBaseline: Number(row.mastery_baseline ?? 0),
-    orderIndex: Number(row.order_index ?? 0),
-  };
-}
-
 function toLearningEvent(row: Record<string, unknown>): TeachingLearningEvent {
   return {
     id: String(row.id),
@@ -294,36 +219,89 @@ function toLearningEvent(row: Record<string, unknown>): TeachingLearningEvent {
   };
 }
 
-export async function getKnowledgeGraph(courseId: string): Promise<{
+/**
+ * Derive the teaching knowledge graph from the canonical KnowledgeDoc
+ * (teaching_knowledge jsonb, editable by teachers via /api/teaching/knowledge).
+ * This unifies the knowledge source: agents, students and teachers all see the
+ * same nodes/edges the teacher builds, instead of a parallel seed table.
+ */
+export async function getKnowledgeGraph(_courseId: string): Promise<{
   nodes: TeachingKnowledgeNode[];
   edges: TeachingKnowledgeEdge[];
 }> {
   await ensureTeachingDatabase();
-  const nodes = await query(
-    `
-      SELECT *
-      FROM teaching_knowledge_nodes
-      WHERE course_id = $1
-      ORDER BY order_index ASC
-    `,
-    [courseId],
-  );
-  const edges = await query(
-    `
-      SELECT source_id, target_id, relation
-      FROM teaching_knowledge_edges
-      WHERE course_id = $1
-    `,
-    [courseId],
-  );
+  const doc = await loadKnowledge();
+  const points = getAllPoints(doc);
 
+  const nodes: TeachingKnowledgeNode[] = points.map((point, index) => {
+    const chapter = getPointChapter(doc, point.id);
+    const section = getPointSection(doc, point.id);
+    return {
+      id: point.id,
+      title: point.title,
+      chapterId: chapter?.id ?? '',
+      chapterTitle: chapter?.title ?? '',
+      sectionId: section?.id ?? '',
+      sectionTitle: section?.title ?? '',
+      level: 'knowledge',
+      dependencies: point.prerequisites ?? [],
+      masteryBaseline: 50,
+      orderIndex: index + 1,
+    };
+  });
+
+  const edges: TeachingKnowledgeEdge[] = buildGraphEdges(doc).map((edge) => ({
+    source: edge.source,
+    target: edge.target,
+    relation: edge.type === 'prerequisite' ? 'prerequisite' : 'related',
+  }));
+
+  return { nodes, edges };
+}
+
+/** Record a single learning event emitted by a student activity (qa/practice/study). */
+export async function insertLearningEvent(params: {
+  courseId: string;
+  studentId: string;
+  eventType: TeachingLearningEvent['eventType'];
+  knowledgeNodeId: string;
+  score?: number | null;
+  durationMinutes?: number;
+  payload?: Record<string, unknown>;
+}): Promise<TeachingLearningEvent> {
+  await ensureTeachingDatabase();
+  const id = `ev-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const score = params.score ?? null;
+  const durationMinutes = params.durationMinutes ?? 0;
+  const payload = params.payload ?? {};
+  await query(
+    `
+      INSERT INTO teaching_learning_events (
+        id, course_id, student_id, event_type, knowledge_node_id,
+        score, duration_minutes, payload
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)
+    `,
+    [
+      id,
+      params.courseId,
+      params.studentId,
+      params.eventType,
+      params.knowledgeNodeId,
+      score,
+      durationMinutes,
+      JSON.stringify(payload),
+    ],
+  );
   return {
-    nodes: nodes.rows.map(toKnowledgeNode),
-    edges: edges.rows.map((row) => ({
-      source: String(row.source_id),
-      target: String(row.target_id),
-      relation: row.relation as TeachingKnowledgeEdge['relation'],
-    })),
+    id,
+    studentId: params.studentId,
+    eventType: params.eventType,
+    knowledgeNodeId: params.knowledgeNodeId,
+    score,
+    durationMinutes,
+    payload,
+    occurredAt: new Date().toISOString(),
   };
 }
 

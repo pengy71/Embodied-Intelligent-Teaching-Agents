@@ -326,10 +326,14 @@ function StructureSkeleton() {
   );
 }
 
-export function KnowledgeStructure({ doc }: { doc?: KnowledgeDoc } = {}) {
+export function KnowledgeStructure({ doc, onSelectPoint }: { doc?: KnowledgeDoc; onSelectPoint?: (id: string) => void } = {}) {
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set(['ch01']));
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['ch01-s2']));
-  const [selectedPoint, setSelectedPoint] = useState<string | null>('ch01-1-2');
+  const [selectedPoint, setSelectedPointState] = useState<string | null>('ch01-1-2');
+  const setSelectedPoint = (id: string | null) => {
+    setSelectedPointState(id);
+    if (id && onSelectPoint) onSelectPoint(id);
+  };
 
   const toggle = (set: Set<string>, setter: (s: Set<string>) => void, id: string) => {
     const next = new Set(set);

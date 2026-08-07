@@ -43,8 +43,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-const STUDENT_GUIDANCE_SCHEMA_VERSION = 2;
-const TEACHER_ANALYTICS_SCHEMA_VERSION = 2;
+const STUDENT_GUIDANCE_SCHEMA_VERSION = 3;
+const TEACHER_ANALYTICS_SCHEMA_VERSION = 3;
 
 function isStudentGuidanceCache(value: unknown): value is StudentGuidanceResult {
   return isRecord(value) && value.schemaVersion === STUDENT_GUIDANCE_SCHEMA_VERSION;
