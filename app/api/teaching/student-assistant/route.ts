@@ -2,6 +2,30 @@ import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { loadKnowledge, isTeachingStoreConfigured } from '@/lib/teaching/store';
 import { getAllPoints, getPoint, type KnowledgeDoc, type KnowledgePoint } from '@/lib/teaching/knowledge-doc';
 
+interface StudentProgress {
+  masteredPoints: string[];
+  currentChapter: string;
+  weakPoints: string[];
+  learningHistory: Array<{ pointId: string; timestamp: number; mastery: number }>;
+}
+
+interface Recommendation {
+  type: string;
+  pointId: string;
+  title: string;
+  reason: string;
+  priority: string;
+}
+
+interface TodaySuggestion {
+  type: string;
+  pointId: string;
+  title: string;
+  estimatedTime: number;
+  reason: string;
+}
+
+
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
@@ -49,12 +73,12 @@ export async function GET(request: Request) {
   }
 }
 
-function generateRecommendations(doc: KnowledgeDoc, studentProgress: any) {
+function generateRecommendations(doc: KnowledgeDoc, studentProgress: StudentProgress) {
   const allPoints = getAllPoints(doc);
   const masteredSet = new Set<string>(studentProgress.masteredPoints);
   const weakSet = new Set<string>(studentProgress.weakPoints);
 
-  const prerequisiteRecommendations: any[] = [];
+  const prerequisiteRecommendations: Recommendation[] = [];
   for (const point of allPoints) {
     if (masteredSet.has(point.id)) continue;
     const prerequisites = point.prerequisites || [];
@@ -70,7 +94,7 @@ function generateRecommendations(doc: KnowledgeDoc, studentProgress: any) {
     }
   }
 
-  const weakPointRecommendations: any[] = [];
+  const weakPointRecommendations: Recommendation[] = [];
   for (const pointId of weakSet) {
     const point = getPoint(doc, pointId);
     if (point) {
@@ -84,7 +108,7 @@ function generateRecommendations(doc: KnowledgeDoc, studentProgress: any) {
     }
   }
 
-  const relatedRecommendations: any[] = [];
+  const relatedRecommendations: Recommendation[] = [];
   for (const pointId of studentProgress.masteredPoints.slice(0, 3)) {
     const point = getPoint(doc, pointId);
     if (point && point.related) {
@@ -112,7 +136,7 @@ function generateRecommendations(doc: KnowledgeDoc, studentProgress: any) {
   ];
 }
 
-function generateLearningPath(doc: KnowledgeDoc, studentProgress: any) {
+function generateLearningPath(doc: KnowledgeDoc, studentProgress: StudentProgress) {
   const masteredSet = new Set<string>(studentProgress.masteredPoints);
 
   const path = [];
@@ -140,12 +164,12 @@ function generateLearningPath(doc: KnowledgeDoc, studentProgress: any) {
   return path;
 }
 
-function generateTodaySuggestions(doc: KnowledgeDoc, studentProgress: any) {
+function generateTodaySuggestions(doc: KnowledgeDoc, studentProgress: StudentProgress) {
   const allPoints = getAllPoints(doc);
   const masteredSet = new Set<string>(studentProgress.masteredPoints);
   const weakSet = new Set<string>(studentProgress.weakPoints);
 
-  const suggestions: any[] = [];
+  const suggestions: TodaySuggestion[] = [];
 
   for (const pointId of weakSet) {
     const point = getPoint(doc, pointId);

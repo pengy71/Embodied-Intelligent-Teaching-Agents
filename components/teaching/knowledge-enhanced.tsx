@@ -108,7 +108,7 @@ export function KnowledgeEnhanced() {
       {data.todaySuggestions.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Today's Knowledge-Based Plan</CardTitle>
+            <CardTitle className="text-base">Today&apos;s Knowledge-Based Plan</CardTitle>
             <CardDescription>AI-generated based on your progress</CardDescription>
           </CardHeader>
           <CardContent>

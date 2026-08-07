@@ -37,7 +37,7 @@ export default function TeachingHomePage() {
           </h1>
           <p className="mx-auto max-w-2xl text-base text-slate-500">
             基于 OpenMAIC 多智能体互动课堂框架，通过课程知识图谱、长期学习记忆、多智能体协同，
-            实现"教师-AI-学生"协同的智能教学模式
+            实现&ldquo;教师-AI-学生&rdquo;协同的智能教学模式
           </p>
           <div className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
             <Sparkles className="h-3 w-3" />

@@ -5,7 +5,7 @@ import * as echarts from "echarts";
 import { cn } from "@/lib/utils";
 
 interface EChartProps {
-  option: any;
+  option: echarts.EChartsCoreOption;
   className?: string;
   style?: React.CSSProperties;
 }

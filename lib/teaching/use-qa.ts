@@ -22,7 +22,7 @@ export interface UseQAResult {
   data: QAResponse | null;
   isLoading: boolean;
   error: Error | null;
-  askQuestion: (question: string, options?: { teachingStyle?: string; depth?: string }) => Promise<void>;
+  askQuestion: (question: string, options?: { teachingStyle?: string; depth?: string }) => Promise<QAResponse | null>;
 }
 
 export function useQA(): UseQAResult {
@@ -30,7 +30,7 @@ export function useQA(): UseQAResult {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  const askQuestion = useCallback(async (question: string, options?: { teachingStyle?: string; depth?: string }) => {
+  const askQuestion = useCallback(async (question: string, options?: { teachingStyle?: string; depth?: string }): Promise<QAResponse | null> => {
     setIsLoading(true);
     setError(null);
 
@@ -47,9 +47,12 @@ export function useQA(): UseQAResult {
       }
 
       const json = await res.json();
-      setData(json.data);
+      const result: QAResponse = json.data;
+      setData(result);
+      return result;
     } catch (e) {
       setError(e instanceof Error ? e : new Error(String(e)));
+    return null;
     } finally {
       setIsLoading(false);
     }

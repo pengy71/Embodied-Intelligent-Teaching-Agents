@@ -432,7 +432,7 @@ export default function TeacherToolsPage() {
                 </div>
                 <p className="text-sm text-muted-foreground">
                   该章节平均掌握率仅 22%，错题率高达 68%。建议：1) 增加实物演示环节；
-                  2) 拆解"抓取规划"为更细粒度的子知识点；3) 布置仿真实验作业加深理解。
+                  2) 拆解&ldquo;抓取规划&rdquo;为更细粒度的子知识点；3) 布置仿真实验作业加深理解。
                 </p>
               </div>
               <div className="rounded-lg border bg-card p-4">

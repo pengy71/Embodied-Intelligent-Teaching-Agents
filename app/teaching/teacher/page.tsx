@@ -166,7 +166,7 @@ export default function TeacherOverviewPage() {
                 <h4 className="text-sm font-semibold">Manipulation 抓取规划</h4>
               </div>
               <p className="text-sm text-muted-foreground">
-                掌握率仅 22%，建议实物演示辅助讲解，结合"抓取姿态估计"和"力控反馈"拆解式教学。
+                掌握率仅 22%，建议实物演示辅助讲解，结合&ldquo;抓取姿态估计&rdquo;和&ldquo;力控反馈&rdquo;拆解式教学。
               </p>
             </div>
             <div className="rounded-lg border bg-card p-3">

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useRef, useEffect } from "react";
 import { PageHeader } from "@/components/layout/page-header";
@@ -58,7 +58,7 @@ export default function StudentQAPage() {
     },
   ]);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { data, isLoading, error, askQuestion } = useQA();
+  const { isLoading, error, askQuestion } = useQA();
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -77,23 +77,19 @@ export default function StudentQAPage() {
     setInput("");
 
     // 调用知识库API
-    await askQuestion(question, { teachingStyle, depth });
-  };
-
-  // 当API返回数据时，添加到消息列表
-  useEffect(() => {
-    if (data && !isLoading) {
+    const result = await askQuestion(question, { teachingStyle, depth });
+    if (result) {
       const aiMsg: Message = {
         id: Date.now() + 1,
         role: "assistant",
-        content: data.answer,
-        sources: data.sources,
-        relatedPoints: data.relatedPoints,
+        content: result.answer,
+        sources: result.sources,
+        relatedPoints: result.relatedPoints,
         time: "刚刚",
       };
       setMessages((prev) => [...prev, aiMsg]);
     }
-  }, [data, isLoading]);
+  };
 
   const suggestedQuestions = [
     "什么是齐次变换矩阵？",

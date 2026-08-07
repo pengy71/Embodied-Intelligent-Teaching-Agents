@@ -497,7 +497,7 @@ export default function StudentPracticePage() {
                 <div className="flex-1">
                   <p className="text-sm font-medium">AI 查漏补缺建议</p>
                   <p className="text-xs text-muted-foreground">
-                    建议重点复习"扩展卡尔曼滤波"和"PPO算法"相关知识点，可通过知识图谱查看前置依赖关系
+                    建议重点复习&ldquo;扩展卡尔曼滤波&rdquo;和&ldquo;PPO算法&rdquo;相关知识点，可通过知识图谱查看前置依赖关系
                   </p>
                 </div>
                 <Button size="sm">
