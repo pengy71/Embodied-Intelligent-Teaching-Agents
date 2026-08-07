@@ -47,7 +47,11 @@ export function useQA(): UseQAResult {
       }
 
       const json = await res.json();
-      const result: QAResponse = json.data;
+      const result: QAResponse = {
+        answer: json.answer,
+        sources: Array.isArray(json.sources) ? json.sources : [],
+        relatedPoints: Array.isArray(json.relatedPoints) ? json.relatedPoints : [],
+      };
       setData(result);
       return result;
     } catch (e) {

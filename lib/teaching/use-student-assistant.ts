@@ -67,7 +67,7 @@ async function fetchStudentAssistant(): Promise<StudentAssistantData> {
   const res = await fetch('/api/teaching/student-assistant', { cache: 'no-store' });
   if (!res.ok) throw new Error('Failed to load student assistant data (' + res.status + ')');
   const json = await res.json();
-  return json.data;
+  return json as StudentAssistantData;
 }
 
 export interface UseStudentAssistantResult {
