@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { EChart } from "@/components/teaching/charts/echart";
+import { AnalyticsAgentPanel } from "@/components/teaching/analytics-agent-panel";
 import { studentStats, courseStructure } from "@/lib/mock-data";
 import {
   BarChart3,
@@ -139,6 +140,8 @@ export default function TeacherToolsPage() {
           导出数据
         </Button>
       </PageHeader>
+
+      <AnalyticsAgentPanel />
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="flex-wrap h-auto gap-1">

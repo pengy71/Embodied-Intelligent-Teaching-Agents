@@ -5,12 +5,14 @@ import { getAllPoints, getPoint, type KnowledgeDoc, type KnowledgePoint } from '
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: Request) {
   if (!isTeachingStoreConfigured()) {
     return apiError('INVALID_REQUEST', 503, 'Teaching knowledge base not configured: please set DATABASE_URL');
   }
   try {
     const doc = await loadKnowledge();
+    const style = new URL(request.url).searchParams.get('style') ?? '引导启发型';
+    const depth = new URL(request.url).searchParams.get('depth') ?? '标准';
     const allPoints = getAllPoints(doc);
 
     const studentProgress = {
@@ -38,7 +40,9 @@ export async function GET() {
         masteredPoints: studentProgress.masteredPoints.length,
         weakPoints: studentProgress.weakPoints.length,
         currentChapter: studentProgress.currentChapter,
-      }
+      },
+      profile: { teachingStyle: style, depth },
+      generatedAt: new Date().toISOString(),
     });
   } catch (err) {
     return apiError('INTERNAL_ERROR', 500, err instanceof Error ? err.message : 'Failed to generate learning suggestions');

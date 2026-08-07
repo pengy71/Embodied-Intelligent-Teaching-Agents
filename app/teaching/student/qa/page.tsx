@@ -47,6 +47,8 @@ interface Message {
 export default function StudentQAPage() {
   const [activeTab, setActiveTab] = useState("quick");
   const [input, setInput] = useState("");
+  const [teachingStyle, setTeachingStyle] = useState("引导启发型");
+  const [depth, setDepth] = useState("标准");
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
@@ -75,7 +77,7 @@ export default function StudentQAPage() {
     setInput("");
 
     // 调用知识库API
-    await askQuestion(question);
+    await askQuestion(question, { teachingStyle, depth });
   };
 
   // 当API返回数据时，添加到消息列表
@@ -245,6 +247,26 @@ export default function StudentQAPage() {
 
         {/* Sidebar */}
         <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">答疑偏好</CardTitle>
+              <CardDescription>答疑 Agent 会根据你的画像调整表达方式</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <select className="w-full rounded-md border bg-background px-3 py-2 text-sm" value={teachingStyle} onChange={(event) => setTeachingStyle(event.target.value)}>
+                <option>严谨型</option>
+                <option>引导启发型</option>
+                <option>通俗易懂型</option>
+                <option>实践应用型</option>
+              </select>
+              <select className="w-full rounded-md border bg-background px-3 py-2 text-sm" value={depth} onChange={(event) => setDepth(event.target.value)}>
+                <option>基础</option>
+                <option>标准</option>
+                <option>深入</option>
+              </select>
+            </CardContent>
+          </Card>
+
           {/* Suggested Questions */}
           <Card>
             <CardHeader>

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { practiceQuestions, wrongQuestions, courseStructure } from "@/lib/mock-data";
+import { usePractice, type PracticeQuestion } from "@/lib/teaching/use-practice";
 import {
   Sparkles,
   BookOpen,
@@ -27,6 +28,8 @@ export default function StudentPracticePage() {
   const [activeTab, setActiveTab] = useState("ai-generate");
   const [answers, setAnswers] = useState<Record<number, number | number[]>>({});
   const [showResult, setShowResult] = useState(false);
+  const { generate: generatePractice, isLoading: isGenerating, error: practiceError } = usePractice();
+  const [agentQuestions, setAgentQuestions] = useState<PracticeQuestion[]>([]);
 
   const handleAnswer = (qId: number, optionIdx: number, isMulti: boolean) => {
     setAnswers((prev) => {
@@ -80,13 +83,30 @@ export default function StudentPracticePage() {
                     </CardTitle>
                     <CardDescription>基于你的薄弱知识点和学习画像生成专属练习</CardDescription>
                   </div>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" onClick={async () => setAgentQuestions(await generatePractice(activeTab === "special" ? "special" : "adaptive", ["ch01-1-3", "ch01-2-3"]))} disabled={isGenerating}>
                     <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-                    重新生成
+                    {isGenerating ? "生成中..." : "AI重新生成"}
                   </Button>
                 </div>
               </CardHeader>
               <CardContent>
+                {agentQuestions.length > 0 && (
+                  <div className="mb-4 rounded-lg border border-primary/30 bg-primary/5 p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <p className="text-sm font-medium">评测 Agent 已生成 {agentQuestions.length} 道个性化题目</p>
+                      <Badge variant="outline">知识图谱 + 学习画像</Badge>
+                    </div>
+                    <div className="space-y-2">
+                      {agentQuestions.map((question, index) => (
+                        <div key={question.id} className="rounded-md border bg-background p-3 text-sm">
+                          <p className="font-medium">{index + 1}. {question.question}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">{question.chapter} · 来源：{question.source}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {practiceError && <p className="mb-3 text-xs text-destructive">{practiceError.message}</p>}
                 <div className="mb-4 rounded-lg border bg-primary/5 p-3">
                   <p className="text-sm text-muted-foreground">
                     <Sparkles className="mr-1 inline h-3.5 w-3.5 text-primary" />

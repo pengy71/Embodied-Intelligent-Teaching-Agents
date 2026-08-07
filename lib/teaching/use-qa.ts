@@ -22,7 +22,7 @@ export interface UseQAResult {
   data: QAResponse | null;
   isLoading: boolean;
   error: Error | null;
-  askQuestion: (question: string) => Promise<void>;
+  askQuestion: (question: string, options?: { teachingStyle?: string; depth?: string }) => Promise<void>;
 }
 
 export function useQA(): UseQAResult {
@@ -30,7 +30,7 @@ export function useQA(): UseQAResult {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  const askQuestion = useCallback(async (question: string) => {
+  const askQuestion = useCallback(async (question: string, options?: { teachingStyle?: string; depth?: string }) => {
     setIsLoading(true);
     setError(null);
 
@@ -38,7 +38,7 @@ export function useQA(): UseQAResult {
       const res = await fetch('/api/teaching/qa', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify({ question, profile: options }),
         cache: 'no-store',
       });
 

@@ -1,6 +1,6 @@
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { loadKnowledge, isTeachingStoreConfigured } from '@/lib/teaching/store';
-import { getAllPoints, getPoint, getChapter, type KnowledgeDoc, type KnowledgePoint } from '@/lib/teaching/knowledge-doc';
+import { getAllPoints, type KnowledgeDoc, type KnowledgePoint } from '@/lib/teaching/knowledge-doc';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -11,7 +11,9 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { question } = await request.json();
+    const body = await request.json();
+    const question = body?.question;
+    const profile = body?.profile ?? {};
 
     if (!question || typeof question !== 'string') {
       return apiError('INVALID_REQUEST', 400, 'Please provide a valid question');
@@ -21,8 +23,8 @@ export async function POST(request: Request) {
     const allPoints = getAllPoints(doc);
 
     const relevantPoints = searchRelevantPoints(question, allPoints);
-    const answer = generateAnswer(question, relevantPoints, doc);
-    const sources = extractSources(relevantPoints, doc);
+    const answer = generateAnswer(question, relevantPoints, doc, profile);
+    const sources = extractSources(relevantPoints, doc, allPoints);
 
     return apiSuccess({
       answer,
@@ -88,7 +90,12 @@ function extractKeywords(text: string): string[] {
   return foundKeywords;
 }
 
-function generateAnswer(question: string, relevantPoints: KnowledgePoint[], doc: KnowledgeDoc): string {
+function generateAnswer(
+  question: string,
+  relevantPoints: KnowledgePoint[],
+  doc: KnowledgeDoc,
+  profile: { teachingStyle?: string; depth?: string } = {},
+): string {
   if (relevantPoints.length === 0) {
     return 'Sorry, I could not find knowledge points directly related to your question. Suggestions:\n1. Try using more specific terms\n2. Check the course syllabus\n3. Ask your instructor';
   }
@@ -96,12 +103,22 @@ function generateAnswer(question: string, relevantPoints: KnowledgePoint[], doc:
   const mainPoint = relevantPoints[0];
   const chapter = getChapterForPoint(mainPoint.id, doc);
 
-  let answer = 'Regarding your question, I found relevant information from the textbook:\n\n';
-  answer += '**Core concept: ' + mainPoint.title + '**\n';
+  const style = profile.teachingStyle ?? '引导启发型';
+  const deep = profile.depth ?? '标准';
+  let answer = `我按“${style}、${deep}深度”整理了课程知识库中的相关内容：\n\n`;
+  answer += '**核心知识点：' + mainPoint.title + '**\n';
   if (mainPoint.summary) answer += mainPoint.summary + '\n\n';
 
+  if (style.includes('通俗')) {
+    answer += '先用一句话理解：把这个知识点放回“感知—决策—动作”的具身智能闭环中，它解决的是系统如何从观测得到可执行行为。\n\n';
+  } else if (style.includes('严谨')) {
+    answer += '建议先明确输入、输出、假设和评价指标，再结合教材中的定义与推导进行复习。\n\n';
+  } else if (style.includes('实践')) {
+    answer += '实践建议：先在一个最小实验中固定数据和评价指标，再逐步替换模型或控制策略。\n\n';
+  }
+
   if (relevantPoints.length > 1) {
-    answer += '**Related knowledge points:**\n';
+    answer += '**相关知识点：**\n';
     for (let i = 1; i < Math.min(4, relevantPoints.length); i++) {
       answer += '- ' + relevantPoints[i].title;
       if (relevantPoints[i].summary) answer += ': ' + relevantPoints[i].summary;
@@ -110,15 +127,15 @@ function generateAnswer(question: string, relevantPoints: KnowledgePoint[], doc:
     answer += '\n';
   }
 
-  answer += '**Learning suggestions:**\n';
-  if (chapter) answer += '1. Recommended to study chapter "' + chapter.title + '" first\n';
-  if (mainPoint.prerequisites && mainPoint.prerequisites.length > 0) answer += '2. Ensure mastery of prerequisites: ' + mainPoint.prerequisites.join(', ') + '\n';
-  if (mainPoint.related && mainPoint.related.length > 0) answer += '3. Can further study related knowledge points: ' + mainPoint.related.join(', ') + '\n';
+  answer += '**学习建议：**\n';
+  if (chapter) answer += '1. 建议先复习章节“' + chapter.title + '”\n';
+  if (mainPoint.prerequisites && mainPoint.prerequisites.length > 0) answer += '2. 先确认前置知识：' + mainPoint.prerequisites.join('、') + '\n';
+  if (mainPoint.related && mainPoint.related.length > 0) answer += '3. 下一步可学习：' + mainPoint.related.join('、') + '\n';
 
   return answer;
 }
 
-function extractSources(points: KnowledgePoint[], doc: KnowledgeDoc) {
+function extractSources(points: KnowledgePoint[], doc: KnowledgeDoc, allPoints: KnowledgePoint[]) {
   const sources = [];
   for (const point of points.slice(0, 3)) {
     const chapter = getChapterForPoint(point.id, doc);
@@ -127,7 +144,9 @@ function extractSources(points: KnowledgePoint[], doc: KnowledgeDoc) {
         pointId: point.id,
         title: point.title,
         chapter: chapter.title,
-        pageReference: 'Textbook P.' + (Math.floor(Math.random() * 200) + 1)
+        pageReference: `课程知识库·第${chapter.number}章·知识点 ${allPoints.indexOf(point) + 1}`,
+        sourceType: 'course-knowledge-base',
+        confidence: 0.86,
       });
     }
   }
