@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { DEFAULT_TEACHING_COURSE_ID } from '@/lib/teaching/seed';
 import { insertLearningEvent } from '@/lib/teaching/db';
+import { getSessionUser } from '@/lib/auth/accounts';
 import type { TeachingLearningEvent } from '@/lib/teaching/types';
 
 export const runtime = 'nodejs';
@@ -18,8 +19,16 @@ const ALLOWED_EVENT_TYPES = new Set([
 
 export async function POST(req: NextRequest) {
   try {
+    const user = await getSessionUser();
+    if (!user) {
+      return apiError('INVALID_CREDENTIALS', 401, '请先登录');
+    }
+    if (user.role !== 'student' || !user.studentId) {
+      return apiError('INVALID_REQUEST', 403, '仅学生账号可记录学习事件');
+    }
+    const studentId = user.studentId;
+
     const body = (await req.json().catch(() => ({}))) as {
-      studentId?: string;
       eventType?: string;
       knowledgeNodeId?: string;
       score?: number | null;
@@ -27,13 +36,9 @@ export async function POST(req: NextRequest) {
       payload?: Record<string, unknown>;
     };
 
-    const studentId = (body.studentId ?? '').trim();
     const eventType = (body.eventType ?? '').trim();
     const knowledgeNodeId = (body.knowledgeNodeId ?? '').trim();
 
-    if (!studentId) {
-      return apiError('INVALID_REQUEST', 400, 'studentId is required');
-    }
     if (!ALLOWED_EVENT_TYPES.has(eventType)) {
       return apiError('INVALID_REQUEST', 400, `eventType must be one of: ${Array.from(ALLOWED_EVENT_TYPES).join(', ')}`);
     }

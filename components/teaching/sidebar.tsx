@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { GraduationCap, User, LayoutDashboard, BookOpen, Wrench, Bot, Library, MessageSquare, ClipboardList, Brain } from "lucide-react";
+import { GraduationCap, User, LayoutDashboard, BookOpen, Wrench, Bot, Library, MessageSquare, ClipboardList, LogOut, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useSession } from "@/lib/auth/use-session";
+import { useRouter } from "next/navigation";
 
 interface NavItem {
   title: string;
@@ -36,6 +38,12 @@ export function TeachingSidebar({ role, roleLabel, userName, userDesc }: Sidebar
   const pathname = usePathname();
   const navItems = role === "teacher" ? teacherNavItems : studentNavItems;
   const Icon = role === "teacher" ? GraduationCap : User;
+  const { logout } = useSession();
+  const router = useRouter();
+  const handleLogout = async () => {
+    await logout();
+    router.replace("/login");
+  };
 
   return (
     <>
@@ -104,12 +112,16 @@ export function TeachingSidebar({ role, roleLabel, userName, userDesc }: Sidebar
         </nav>
 
         {/* Back to main */}
-        <div className="border-t p-4">
+        <div className="border-t p-4 space-y-1">
           <Button asChild variant="ghost" className="w-full justify-start gap-3">
             <Link href="/">
               <Brain className="h-4 w-4" />
               返回教学首页
             </Link>
+          </Button>
+          <Button variant="ghost" className="w-full justify-start gap-3 text-muted-foreground" onClick={handleLogout}>
+            <LogOut className="h-4 w-4" />
+            退出登录
           </Button>
         </div>
       </aside>

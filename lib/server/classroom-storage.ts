@@ -2,6 +2,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import type { NextRequest } from 'next/server';
 import type { Scene, Stage } from '@/lib/types/stage';
+import { Pool } from 'pg';
 
 export const CLASSROOMS_DIR = path.join(process.cwd(), 'data', 'classrooms');
 export const CLASSROOM_JOBS_DIR = path.join(process.cwd(), 'data', 'classroom-jobs');
@@ -28,6 +29,29 @@ export async function writeJsonFileAtomic(filePath: string, data: unknown) {
   await fs.rename(tempFilePath, filePath);
 }
 
+let classroomPool: Pool | undefined;
+
+export function getClassroomPool(): Pool {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error('DATABASE_URL is required for classroom storage');
+  }
+  if (!classroomPool) {
+    classroomPool = new Pool({ connectionString, max: 10 });
+  }
+  return classroomPool;
+}
+
+async function ensureClassroomsSchema(): Promise<void> {
+  await getClassroomPool().query(`
+    CREATE TABLE IF NOT EXISTS classrooms (
+      id text PRIMARY KEY,
+      data jsonb NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+}
+
 export function buildRequestOrigin(req: NextRequest): string {
   return req.headers.get('x-forwarded-host')
     ? `${req.headers.get('x-forwarded-proto') || 'http'}://${req.headers.get('x-forwarded-host')}`
@@ -46,16 +70,10 @@ export function isValidClassroomId(id: string): boolean {
 }
 
 export async function readClassroom(id: string): Promise<PersistedClassroomData | null> {
-  const filePath = path.join(CLASSROOMS_DIR, `${id}.json`);
-  try {
-    const content = await fs.readFile(filePath, 'utf-8');
-    return JSON.parse(content) as PersistedClassroomData;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return null;
-    }
-    throw error;
-  }
+  await ensureClassroomsSchema();
+  const { rows } = await getClassroomPool().query('SELECT data FROM classrooms WHERE id = $1', [id]);
+  if (!rows.length) return null;
+  return rows[0].data as PersistedClassroomData;
 }
 
 export async function persistClassroom(
@@ -73,9 +91,12 @@ export async function persistClassroom(
     createdAt: new Date().toISOString(),
   };
 
-  await ensureClassroomsDir();
-  const filePath = path.join(CLASSROOMS_DIR, `${data.id}.json`);
-  await writeJsonFileAtomic(filePath, classroomData);
+  await ensureClassroomsSchema();
+  await getClassroomPool().query(
+    `INSERT INTO classrooms (id, data, created_at) VALUES ($1, $2::jsonb, now())
+     ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, created_at = now()`,
+    [data.id, JSON.stringify(classroomData)],
+  );
 
   return {
     ...classroomData,

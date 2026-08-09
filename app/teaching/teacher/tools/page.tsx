@@ -15,26 +15,50 @@ import {
   Award,
   BarChart3,
   ClipboardCheck,
+  ClipboardList,
   Download,
   Eye,
   FileBarChart,
   Lightbulb,
+  Loader2,
   MessageSquare,
+  Plus,
   RefreshCw,
   TrendingUp,
   Users,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useTeacherStageTests } from "@/lib/teaching/use-stage-tests";
+import { useKnowledge } from "@/lib/teaching/use-knowledge";
+import type { StageTestDifficulty } from "@/lib/teaching/types";
 
 const RADAR_LABELS = ["环境感知", "世界模型", "任务规划", "Motion Planning", "Manipulation", "强化学习", "多智能体"];
 const WEEK_LABELS = ["第1周", "第2周", "第3周", "第4周"];
 const TEST_LABELS = ["优秀(90+)", "良好(80-89)", "及格(60-79)", "待提升(<60)"];
 const ERROR_LABELS = ["Manipulation", "多智能体协同", "Motion Planning", "世界模型", "强化学习"];
 
+const DIFF_LABEL: Record<StageTestDifficulty, string> = {
+  easy: "简单",
+  medium: "中等",
+  hard: "困难",
+  mixed: "混合",
+};
+
 export default function TeacherToolsPage() {
   const [activeTab, setActiveTab] = useState("knowledge-analysis");
   const [analytics, setAnalytics] = useState<TeacherAnalyticsResult | null>(null);
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(true);
   const [analyticsError, setAnalyticsError] = useState<string | null>(null);
+
+  const stageTests = useTeacherStageTests();
+  const knowledge = useKnowledge();
+  const [testTitle, setTestTitle] = useState("");
+  const [testDesc, setTestDesc] = useState("");
+  const [testChapterIds, setTestChapterIds] = useState<string[]>([]);
+  const [testCount, setTestCount] = useState(8);
+  const [testDifficulty, setTestDifficulty] = useState<StageTestDifficulty>("mixed");
+  const [publishing, setPublishing] = useState(false);
 
   const loadAnalytics = async (force = false) => {
     setIsLoadingAnalytics(true);
@@ -60,6 +84,34 @@ export default function TeacherToolsPage() {
   useEffect(() => {
     void loadAnalytics(false);
   }, []);
+
+  const chapters = knowledge.doc?.chapters ?? [];
+  const chapterLabel = (id: string) => chapters.find((c) => c.id === id)?.title ?? id;
+
+  const toggleTestChapter = (id: string) => {
+    setTestChapterIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
+
+  const handlePublishTest = async () => {
+    if (!testTitle.trim()) return;
+    setPublishing(true);
+    try {
+      await stageTests.createTest({
+        title: testTitle.trim(),
+        description: testDesc.trim(),
+        config: { chapterIds: testChapterIds, count: testCount, difficulty: testDifficulty },
+      });
+      setTestTitle("");
+      setTestDesc("");
+      setTestChapterIds([]);
+      setTestCount(8);
+      setTestDifficulty("mixed");
+    } finally {
+      setPublishing(false);
+    }
+  };
 
   const summary = analytics?.summary ?? {
     totalStudents: 0,
@@ -272,6 +324,7 @@ export default function TeacherToolsPage() {
           <TabsTrigger value="student-report">学生学情</TabsTrigger>
           <TabsTrigger value="qa-analysis">问答分析</TabsTrigger>
           <TabsTrigger value="test-analysis">测试分析</TabsTrigger>
+          <TabsTrigger value="stage-test">阶段测试</TabsTrigger>
           <TabsTrigger value="warning">学习预警</TabsTrigger>
           <TabsTrigger value="suggestions">教学建议</TabsTrigger>
           <TabsTrigger value="export">导出成绩</TabsTrigger>
@@ -488,6 +541,162 @@ export default function TeacherToolsPage() {
               </CardHeader>
               <CardContent>
                 <EChart option={errorDistributionOption} style={{ height: "280px" }} />
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="stage-test" className="mt-6">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <ClipboardList className="h-4 w-4 text-primary" />
+                  发布阶段测试
+                </CardTitle>
+                <CardDescription>选择章节范围与难度，发布后学生端即可参加测试</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {stageTests.error && (
+                  <p className="text-xs text-destructive">{stageTests.error.message}</p>
+                )}
+                <div className="space-y-1.5">
+                  <Label htmlFor="test-title">测试标题</Label>
+                  <Input
+                    id="test-title"
+                    value={testTitle}
+                    onChange={(e) => setTestTitle(e.target.value)}
+                    placeholder="例如：第一阶段综合测试"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="test-desc">测试说明</Label>
+                  <textarea
+                    id="test-desc"
+                    value={testDesc}
+                    onChange={(e) => setTestDesc(e.target.value)}
+                    placeholder="可选：测试范围、注意事项等"
+                    className="min-h-[72px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>章节范围</Label>
+                  <div className="grid max-h-40 gap-1.5 overflow-y-auto rounded-md border p-2">
+                    {knowledge.isLoading && (
+                      <span className="text-xs text-muted-foreground">加载章节中…</span>
+                    )}
+                    {!knowledge.isLoading && chapters.length === 0 && (
+                      <span className="text-xs text-muted-foreground">暂无章节数据</span>
+                    )}
+                    {chapters.map((c) => {
+                      const checked = testChapterIds.includes(c.id);
+                      return (
+                        <label key={c.id} className="flex cursor-pointer items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 accent-primary"
+                            checked={checked}
+                            onChange={() => toggleTestChapter(c.id)}
+                          />
+                          <span className="truncate">
+                            第{c.number}章 {c.title}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="test-count">题目数量</Label>
+                    <Input
+                      id="test-count"
+                      type="number"
+                      min={1}
+                      max={15}
+                      value={testCount}
+                      onChange={(e) =>
+                        setTestCount(Math.min(Math.max(Number(e.target.value) || 1, 1), 15))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="test-difficulty">难度</Label>
+                    <select
+                      id="test-difficulty"
+                      value={testDifficulty}
+                      onChange={(e) => setTestDifficulty(e.target.value as StageTestDifficulty)}
+                      className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    >
+                      <option value="easy">简单</option>
+                      <option value="medium">中等</option>
+                      <option value="hard">困难</option>
+                      <option value="mixed">混合</option>
+                    </select>
+                  </div>
+                </div>
+                <Button onClick={handlePublishTest} disabled={publishing || !testTitle.trim()}>
+                  {publishing ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Plus className="mr-1.5 h-3.5 w-3.5" />
+                  )}
+                  {publishing ? "发布中" : "发布测试"}
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">已发布测试</CardTitle>
+                <CardDescription>学生提交后成绩自动计入测试分析</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {stageTests.isLoading && (
+                  <p className="text-sm text-muted-foreground">加载中…</p>
+                )}
+                {!stageTests.isLoading && stageTests.tests.length === 0 && (
+                  <div className="flex h-32 items-center justify-center rounded-lg border-2 border-dashed text-sm text-muted-foreground">
+                    尚未发布任何阶段测试
+                  </div>
+                )}
+                {stageTests.tests.map((t) => (
+                  <div key={t.id} className="rounded-lg border p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium">{t.title}</p>
+                        {t.description && (
+                          <p className="mt-1 text-xs text-muted-foreground">{t.description}</p>
+                        )}
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          <Badge variant="outline">{t.config.count}题</Badge>
+                          <Badge variant="outline">{DIFF_LABEL[t.config.difficulty]}</Badge>
+                          {t.config.chapterIds.length > 0 ? (
+                            t.config.chapterIds.map((id) => (
+                              <Badge key={id} variant="secondary" className="text-xs">
+                                {chapterLabel(id)}
+                              </Badge>
+                            ))
+                          ) : (
+                            <Badge variant="secondary" className="text-xs">
+                              全部章节
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          发布于 {new Date(t.createdAt).toLocaleString("zh-CN")}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void stageTests.removeTest(t.id)}
+                      >
+                        删除
+                      </Button>
+                    </div>
+                  </div>
+                ))}
               </CardContent>
             </Card>
           </div>

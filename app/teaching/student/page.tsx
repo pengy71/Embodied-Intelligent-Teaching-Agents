@@ -100,7 +100,7 @@ export default function StudentAssistantPage() {
       const response = await fetch("/api/teaching/student-guidance", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ studentId: "2024001", force }),
+        body: JSON.stringify({ force }),
       });
       const data = await response.json();
       if (!response.ok || !data.success) {

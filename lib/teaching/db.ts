@@ -1,6 +1,7 @@
 import { Pool, type QueryResult } from 'pg';
 
-import { defaultLearningEvents, defaultStudents, defaultTeachingCourse } from './seed';
+import { defaultAccounts, defaultLearningEvents, defaultStudents, defaultTeachingCourse } from './seed';
+import { hashPassword } from '../auth/password';
 import { loadKnowledge } from './store';
 import {
   buildGraphEdges,
@@ -9,6 +10,10 @@ import {
   getPointSection,
 } from './knowledge-doc';
 import type {
+  StageTest,
+  StageTestConfig,
+  StageTestStatus,
+  StageTestSubmission,
   TeachingAgentType,
   TeachingKnowledgeEdge,
   TeachingKnowledgeNode,
@@ -108,6 +113,57 @@ async function createSchema(): Promise<void> {
       ON teaching_agent_runs(course_id, student_id, agent_type, created_at DESC)
   `);
 
+  await query(`
+    CREATE TABLE IF NOT EXISTS teaching_accounts (
+      id text PRIMARY KEY,
+      username text UNIQUE NOT NULL,
+      password_hash text NOT NULL,
+      role text NOT NULL,
+      display_name text NOT NULL,
+      student_id text,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+
+  await query(`
+    CREATE INDEX IF NOT EXISTS teaching_accounts_username_idx
+      ON teaching_accounts(username)
+  `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS teaching_stage_tests (
+      id text PRIMARY KEY,
+      course_id text NOT NULL REFERENCES teaching_courses(id) ON DELETE CASCADE,
+      title text NOT NULL,
+      description text NOT NULL DEFAULT '',
+      config jsonb NOT NULL DEFAULT '{}'::jsonb,
+      status text NOT NULL DEFAULT 'published',
+      created_by text NOT NULL DEFAULT '',
+      created_at timestamptz NOT NULL DEFAULT now(),
+      due_at timestamptz
+    )
+  `);
+  await query(`
+    CREATE INDEX IF NOT EXISTS teaching_stage_tests_course_idx
+      ON teaching_stage_tests(course_id, created_at DESC)
+  `);
+  await query(`
+    CREATE TABLE IF NOT EXISTS teaching_stage_test_submissions (
+      id text PRIMARY KEY,
+      test_id text NOT NULL REFERENCES teaching_stage_tests(id) ON DELETE CASCADE,
+      student_id text NOT NULL REFERENCES teaching_students(id) ON DELETE CASCADE,
+      score integer NOT NULL DEFAULT 0,
+      detail jsonb NOT NULL DEFAULT '{}'::jsonb,
+      submitted_at timestamptz NOT NULL DEFAULT now(),
+      UNIQUE (test_id, student_id)
+    )
+  `);
+  await query(`
+    CREATE INDEX IF NOT EXISTS teaching_stage_test_submissions_test_idx
+      ON teaching_stage_test_submissions(test_id, student_id)
+  `);
+
   // Knowledge content now lives in teaching_knowledge (KnowledgeDoc, managed by
   // lib/teaching/store). Drop the legacy per-node tables and the learning_events
   // foreign key that pointed at them, so learning events can reference KnowledgeDoc
@@ -133,6 +189,16 @@ async function seedDefaults(): Promise<void> {
     [defaultTeachingCourse.id, defaultTeachingCourse.title, defaultTeachingCourse.description],
   );
 
+  // Clean up students/accounts no longer in the seed data (e.g. after
+  // renumbering student ids). Cascades to learning_events and agent_runs.
+  await query(
+    `DELETE FROM teaching_students WHERE course_id = $1 AND id <> ALL($2::text[])`,
+    [defaultTeachingCourse.id, defaultStudents.map((s) => s.id)],
+  );
+  await query(
+    `DELETE FROM teaching_accounts WHERE id <> ALL($1::text[])`,
+    [defaultAccounts.map((a) => a.id)],
+  );
   for (const student of defaultStudents) {
     await query(
       `
@@ -183,6 +249,24 @@ async function seedDefaults(): Promise<void> {
         JSON.stringify(event.payload),
         event.occurredAt,
       ],
+    );
+  }
+
+  for (const account of defaultAccounts) {
+    const passwordHash = await hashPassword(account.password);
+    await query(
+      `
+        INSERT INTO teaching_accounts (id, username, password_hash, role, display_name, student_id)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT (id) DO UPDATE
+        SET username = EXCLUDED.username,
+            password_hash = EXCLUDED.password_hash,
+            role = EXCLUDED.role,
+            display_name = EXCLUDED.display_name,
+            student_id = EXCLUDED.student_id,
+            updated_at = now()
+      `,
+      [account.id, account.username, passwordHash, account.role, account.displayName, account.studentId],
     );
   }
 }
@@ -425,4 +509,123 @@ export async function getLatestTeachingAgentRun<T>(params: {
     [params.courseId, params.agentType, params.studentId ?? null],
   );
   return (result.rows[0]?.result as T | undefined) ?? null;
+}
+
+// === 阶段测试 ===
+
+export async function createStageTest(input: {
+  id: string;
+  courseId: string;
+  title: string;
+  description: string;
+  config: StageTestConfig;
+  status: string;
+  createdBy: string;
+  dueAt?: string | null;
+}): Promise<StageTest> {
+  await ensureTeachingDatabase();
+  await query(
+    `INSERT INTO teaching_stage_tests (id, course_id, title, description, config, status, created_by, due_at)
+     VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8)`,
+    [
+      input.id,
+      input.courseId,
+      input.title,
+      input.description,
+      JSON.stringify(input.config),
+      input.status,
+      input.createdBy,
+      input.dueAt ?? null,
+    ],
+  );
+  const test = await getStageTest(input.id);
+  if (!test) throw new Error('failed to read back created stage test');
+  return test;
+}
+
+export async function getStageTest(id: string): Promise<StageTest | null> {
+  await ensureTeachingDatabase();
+  const result = await query(`SELECT * FROM teaching_stage_tests WHERE id = $1`, [id]);
+  return result.rows.length ? rowToStageTest(result.rows[0]) : null;
+}
+
+export async function listStageTests(courseId: string): Promise<StageTest[]> {
+  await ensureTeachingDatabase();
+  const result = await query(
+    `SELECT * FROM teaching_stage_tests WHERE course_id = $1 ORDER BY created_at DESC`,
+    [courseId],
+  );
+  return result.rows.map(rowToStageTest);
+}
+
+export async function deleteStageTest(id: string): Promise<void> {
+  await ensureTeachingDatabase();
+  await query(`DELETE FROM teaching_stage_tests WHERE id = $1`, [id]);
+}
+
+export async function upsertStageTestSubmission(input: {
+  id: string;
+  testId: string;
+  studentId: string;
+  score: number;
+  detail: Record<string, unknown>;
+}): Promise<void> {
+  await ensureTeachingDatabase();
+  await query(
+    `INSERT INTO teaching_stage_test_submissions (id, test_id, student_id, score, detail)
+     VALUES ($1, $2, $3, $4, $5::jsonb)
+     ON CONFLICT (test_id, student_id) DO UPDATE
+       SET score = EXCLUDED.score, detail = EXCLUDED.detail, submitted_at = now()`,
+    [input.id, input.testId, input.studentId, input.score, JSON.stringify(input.detail)],
+  );
+}
+
+export async function getStudentSubmissions(
+  courseId: string,
+  studentId: string,
+): Promise<StageTestSubmission[]> {
+  await ensureTeachingDatabase();
+  const result = await query(
+    `SELECT s.* FROM teaching_stage_test_submissions s
+     JOIN teaching_stage_tests t ON t.id = s.test_id
+     WHERE t.course_id = $1 AND s.student_id = $2`,
+    [courseId, studentId],
+  );
+  return result.rows.map(rowToSubmission);
+}
+
+function rowToStageTest(r: Record<string, unknown>): StageTest {
+  const config = (r.config as StageTestConfig | undefined) ?? {
+    chapterIds: [],
+    count: 5,
+    difficulty: 'mixed',
+  };
+  return {
+    id: String(r.id),
+    courseId: String(r.course_id),
+    title: String(r.title ?? ''),
+    description: String(r.description ?? ''),
+    config,
+    status: String(r.status ?? 'published') as StageTestStatus,
+    createdBy: String(r.created_by ?? ''),
+    createdAt:
+      r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at ?? ''),
+    dueAt: r.due_at
+      ? r.due_at instanceof Date
+        ? r.due_at.toISOString()
+        : String(r.due_at)
+      : null,
+  };
+}
+
+function rowToSubmission(r: Record<string, unknown>): StageTestSubmission {
+  return {
+    id: String(r.id),
+    testId: String(r.test_id),
+    studentId: String(r.student_id),
+    score: Number(r.score ?? 0),
+    detail: (r.detail ?? {}) as Record<string, unknown>,
+    submittedAt:
+      r.submitted_at instanceof Date ? r.submitted_at.toISOString() : String(r.submitted_at ?? ''),
+  };
 }

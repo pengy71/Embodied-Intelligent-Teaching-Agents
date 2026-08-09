@@ -12,6 +12,11 @@ import {
   updateResource,
   getResourceContent,
 } from '@/lib/teaching/store';
+import { chunkSegments } from '@/lib/teaching/chunk';
+import { embedTexts, isEmbeddingConfigured } from '@/lib/teaching/embedding';
+import { insertChunks, deleteChunksByResource } from '@/lib/teaching/rag-store';
+import { nanoid } from 'nanoid';
+import type { ChunkInsert } from '@/lib/teaching/types';
 import type { KnowledgeDoc } from '@/lib/teaching/knowledge-doc';
 import type {
   KnowledgeChapter,
@@ -54,11 +59,16 @@ function ext(name: string): string {
 function isTextExt(e: string): boolean {
   return ['txt', 'md', 'markdown', 'json', 'csv', 'tsv', 'text'].includes(e);
 }
+interface ParsedSegment {
+  text: string;
+  page?: number;
+}
 
-async function parseToText(buffer: Buffer, name: string): Promise<string> {
+/** 解析文件为带页码的文本段落（保留 DocumentBlock.pageNumber 用于溯源）。 */
+async function parseToSegments(buffer: Buffer, name: string): Promise<ParsedSegment[]> {
   const e = ext(name);
   if (isTextExt(e)) {
-    return buffer.toString('utf8');
+    return [{ text: buffer.toString('utf8') }];
   }
   if (e === 'pdf') {
     const artifact = await extractDocument({
@@ -67,12 +77,44 @@ async function parseToText(buffer: Buffer, name: string): Promise<string> {
       mimeType: 'application/pdf',
       config: { providerId: 'unpdf' },
     });
-    return artifact.blocks
-      .map((b) => b.text ?? '')
-      .filter(Boolean)
-      .join('\n');
+    const segments: ParsedSegment[] = [];
+    for (const block of artifact.blocks) {
+      const text = block.text?.trim();
+      if (text) segments.push({ text, page: block.pageNumber });
+    }
+    return segments;
   }
   throw new Error(`暂不支持 .${e} 格式的文本解析（MVP 支持 txt/md/pdf）`);
+}
+
+/** 将资源文本分块、向量化并存入 teaching_chunks。失败不影响知识点抽取。 */
+async function indexResourceChunks(
+  resourceId: string,
+  segments: ParsedSegment[],
+): Promise<void> {
+  await deleteChunksByResource(resourceId);
+
+  const chunks = chunkSegments(segments);
+  if (chunks.length === 0) return;
+
+  const texts = chunks.map((c) => c.text);
+  const embeddings = await embedTexts(texts);
+
+  const inserts: ChunkInsert[] = chunks.map((chunk, idx) => ({
+    id: `res-${resourceId}-${idx}-${nanoid(6)}`,
+    courseId: 'default',
+    resourceId,
+    pointId: null,
+    chapterId: null,
+    chunkText: chunk.text,
+    chunkIndex: chunk.chunkIndex,
+    pageRef: chunk.page != null ? `第${chunk.page}页` : null,
+    embedding: embeddings[idx],
+    metadata: { type: 'resource', resourceId },
+  }));
+
+  await insertChunks(inserts);
+  log.info({ resourceId, chunkCount: inserts.length }, '资源向量化完成');
 }
 
 function normalizeTitle(t: string): string {
@@ -236,8 +278,8 @@ export async function runExtraction(resourceId: string): Promise<void> {
     if (!content) throw new Error('资源不存在');
 
     await updateResource(resourceId, { status: 'parsing' });
-    const rawText = await parseToText(content.buffer, content.name);
-    const text = rawText.slice(0, MAX_TEXT_CHARS);
+    const segments = await parseToSegments(content.buffer, content.name);
+    const text = segments.map((s) => s.text).join('\n').slice(0, MAX_TEXT_CHARS);
     await updateResource(resourceId, { status: 'extracting', parsedText: text });
 
     let points: ExtractedPoint[];
@@ -262,6 +304,18 @@ export async function runExtraction(resourceId: string): Promise<void> {
       return merged.pointIds;
     });
 
+
+    // RAG: 分块 + 向量化 + 存入 teaching_chunks（失败不影响知识点抽取结果）
+    if (isEmbeddingConfigured()) {
+      try {
+        await indexResourceChunks(resourceId, segments);
+      } catch (e) {
+        log.warn(
+          { resourceId, err: e instanceof Error ? e.message : String(e) },
+          '资源向量化失败（不影响知识点）',
+        );
+      }
+    }
     log.info({ resourceId, pointCount: pointIds.length }, '抽取完成');
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

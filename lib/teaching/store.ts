@@ -24,7 +24,7 @@ const DEFAULT_COURSE_ID = 'default';
 
 let pool: Pool | undefined;
 
-function getPool(): Pool {
+export function getPool(): Pool {
   if (!pool) {
     const connectionString = process.env.DATABASE_URL;
     if (!connectionString) {
@@ -67,6 +67,49 @@ export async function ensureTeachingSchema(): Promise<void> {
       updated_at timestamptz NOT NULL DEFAULT now(),
       PRIMARY KEY (student_id, point_id)
     );
+    -- RAG 向量存储：教材原文分块 + 知识点向量
+    CREATE EXTENSION IF NOT EXISTS vector;
+    CREATE TABLE IF NOT EXISTS teaching_chunks (
+      id text PRIMARY KEY,
+      course_id text NOT NULL DEFAULT 'default',
+      resource_id text,
+      point_id text,
+      chapter_id text,
+      chunk_text text NOT NULL,
+      chunk_index int NOT NULL,
+      page_ref text,
+      embedding vector(2048),
+      metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+    -- 不创建 HNSW 索引：GLM embedding-3 输出 2048 维超过 HNSW 上限 2000。课程知识库规模小，精确检索足够快。
+    CREATE INDEX IF NOT EXISTS teaching_chunks_resource_idx
+      ON teaching_chunks(resource_id);
+    CREATE INDEX IF NOT EXISTS teaching_chunks_point_idx
+      ON teaching_chunks(point_id);
+    -- Q&A 历史记录
+    CREATE TABLE IF NOT EXISTS teaching_qa_history (
+      id text PRIMARY KEY,
+      student_id text NOT NULL DEFAULT 'default',
+      question text NOT NULL,
+      answer text NOT NULL,
+      sources jsonb NOT NULL DEFAULT '[]'::jsonb,
+      related_points jsonb NOT NULL DEFAULT '[]'::jsonb,
+      profile jsonb NOT NULL DEFAULT '{}'::jsonb,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS teaching_qa_history_student_idx
+      ON teaching_qa_history(student_id, created_at DESC);
+    -- 知识点讲解缓存：pointId -> classroomId，避免同一知识点重复生成
+    CREATE TABLE IF NOT EXISTS teaching_learn_cache (
+      point_id text PRIMARY KEY,
+      classroom_id text NOT NULL,
+      job_id text,
+      scenes_count int,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+
   `);
 }
 
@@ -132,6 +175,24 @@ export async function saveKnowledgeInTx(client: PoolClient, doc: KnowledgeDoc): 
     JSON.stringify(doc),
     DEFAULT_COURSE_ID,
   ]);
+}
+
+/** 删除指定知识点（按 id 在所有章节/小节中查找并移除），返回是否删除成功。 */
+export async function deletePoint(pointId: string): Promise<boolean> {
+  return withKnowledgeTx(async (client, doc) => {
+    let removed = false;
+    for (const chapter of doc.chapters) {
+      for (const section of chapter.sections) {
+        const before = section.points.length;
+        section.points = section.points.filter((p) => p.id !== pointId);
+        if (section.points.length < before) removed = true;
+      }
+    }
+    if (removed) {
+      await saveKnowledgeInTx(client, doc);
+    }
+    return removed;
+  });
 }
 
 export interface ResourcePatch {
@@ -266,6 +327,55 @@ export async function upsertProgress(
   );
 }
 
+
+// === 知识点讲解缓存（pointId -> classroomId）===
+
+export interface LearnCacheEntry {
+  pointId: string;
+  classroomId: string;
+  jobId: string | null;
+  scenesCount: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function getLearnCache(pointId: string): Promise<LearnCacheEntry | null> {
+  await ensureTeachingSchema();
+  const { rows } = await getPool().query(
+    `SELECT point_id, classroom_id, job_id, scenes_count, created_at, updated_at
+     FROM teaching_learn_cache WHERE point_id = $1`,
+    [pointId],
+  );
+  if (!rows.length) return null;
+  const r = rows[0];
+  return {
+    pointId: r.point_id,
+    classroomId: r.classroom_id,
+    jobId: r.job_id ?? null,
+    scenesCount: r.scenes_count ?? null,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+}
+
+export async function upsertLearnCache(
+  pointId: string,
+  classroomId: string,
+  jobId: string | null,
+  scenesCount: number | null,
+): Promise<void> {
+  await ensureTeachingSchema();
+  await getPool().query(
+    `INSERT INTO teaching_learn_cache (point_id, classroom_id, job_id, scenes_count, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, now(), now())
+     ON CONFLICT (point_id) DO UPDATE
+       SET classroom_id = EXCLUDED.classroom_id,
+           job_id = EXCLUDED.job_id,
+           scenes_count = EXCLUDED.scenes_count,
+           updated_at = now()`,
+    [pointId, classroomId, jobId, scenesCount],
+  );
+}
 export interface PointResourceExcerpt {
   id: string;
   name: string;

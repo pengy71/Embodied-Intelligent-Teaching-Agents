@@ -4,6 +4,7 @@ import {
   isPlaybackRendererEnabled,
   isPiChatEnabled,
   isPptxImportEnabled,
+  isTeachingRagEnabled,
   isPiWebSearchEnabled,
   isVideoExportEnabled,
   isVocationalTaskEngineEnabled,
@@ -296,5 +297,36 @@ describe('isPptxImportEnabled', () => {
     expect(isPptxImportEnabled()).toBe(false);
     process.env[flag] = 'false';
     expect(isPptxImportEnabled()).toBe(false);
+  });
+});
+
+describe('isTeachingRagEnabled', () => {
+  const flag = 'TEACHING_RAG_ENABLED';
+  let original: string | undefined;
+
+  beforeEach(() => {
+    original = process.env[flag];
+  });
+
+  afterEach(() => {
+    if (original === undefined) delete process.env[flag];
+    else process.env[flag] = original;
+  });
+
+  it('defaults ON when unset', () => {
+    delete process.env[flag];
+    expect(isTeachingRagEnabled()).toBe(true);
+  });
+
+  it("returns true for 'true' and '1'", () => {
+    process.env[flag] = 'true';
+    expect(isTeachingRagEnabled()).toBe(true);
+    process.env[flag] = '1';
+    expect(isTeachingRagEnabled()).toBe(true);
+  });
+
+  it("returns false for 'false'", () => {
+    process.env[flag] = 'false';
+    expect(isTeachingRagEnabled()).toBe(false);
   });
 });

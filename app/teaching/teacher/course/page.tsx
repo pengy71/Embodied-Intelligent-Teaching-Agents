@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +24,7 @@ import {
   Loader2,
   CheckCircle2,
   RefreshCw,
+  Trash2,
 } from "lucide-react";
 
 const KnowledgeGraph = dynamic(
@@ -65,6 +67,11 @@ export default function TeacherCoursePage() {
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
   const [prerequisites, setPrerequisites] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteMsg, setDeleteMsg] = useState<string | null>(null);
+  const [delChapterId, setDelChapterId] = useState("");
+  const [delSectionId, setDelSectionId] = useState("");
+  const [delPointId, setDelPointId] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitMsg, setSubmitMsg] = useState<string | null>(null);
 
@@ -94,6 +101,9 @@ export default function TeacherCoursePage() {
   const selectedChapter = chapters.find((c) => c.id === chapterId);
   const sections = selectedChapter?.sections ?? [];
   const isNewSection = sectionId === "__new__";
+  const delSections = chapters.find((c) => c.id === delChapterId)?.sections ?? [];
+  const delPoints = delSections.find((s) => s.id === delSectionId)?.points ?? [];
+  const selectedDelPoint = delPoints.find((p) => p.id === delPointId);
 
   const handleAddPoint = async () => {
     setSubmitMsg(null);
@@ -136,6 +146,27 @@ export default function TeacherCoursePage() {
     }
   };
 
+  const handleDeletePoint = async (pointId: string) => {
+    setDeleteMsg(null);
+    setDeletingId(pointId);
+    try {
+      const res = await fetch("/api/teaching/knowledge", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pointId }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json?.success) {
+        throw new Error(json?.error ?? "删除知识点失败");
+      }
+      setDeleteMsg("知识点已删除，知识图谱与结构已更新");
+      await revalidate();
+    } catch (e) {
+      setDeleteMsg(e instanceof Error ? e.message : "删除知识点失败");
+    } finally {
+      setDeletingId(null);
+    }
+  };
   const handleUpload = async (file: File) => {
     setUploadMsg(null);
     if (!file) return;
@@ -196,165 +227,256 @@ export default function TeacherCoursePage() {
         ))}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Layers className="h-5 w-5 text-primary" />
-              课程知识结构
-            </CardTitle>
-            <CardDescription>
-              五级知识体系：章节 -&gt; 小节 -&gt; 知识点 -&gt; 关联知识点 -&gt; 易错点
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <KnowledgeStructure doc={doc ?? undefined} />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Network className="h-5 w-5 text-primary" />
-              知识图谱
-            </CardTitle>
-            <CardDescription>课程知识关联网络（实时派生）</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <KnowledgeGraph doc={doc ?? undefined} />
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Plus className="h-5 w-5 text-primary" />
-              添加知识点
-            </CardTitle>
-            <CardDescription>新增的知识点会实时进入知识图谱，供学生答疑、练习与学情分析使用</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">所属章节</label>
-                <select
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                  value={chapterId}
-                  onChange={(e) => { setChapterId(e.target.value); setSectionId(""); }}
-                >
-                  <option value="">请选择章节</option>
-                  {chapters.map((c) => (
-                    <option key={c.id} value={c.id}>{c.title}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">所属小节</label>
-                <select
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                  value={sectionId}
-                  onChange={(e) => setSectionId(e.target.value)}
-                  disabled={!chapterId}
-                >
-                  <option value="">请选择小节</option>
-                  {sections.map((s) => (
-                    <option key={s.id} value={s.id}>{s.title}</option>
-                  ))}
-                  <option value="__new__">+ 新建小节</option>
-                </select>
-              </div>
-            </div>
-            {isNewSection && (
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">新小节标题</label>
-                <Input value={sectionTitle} onChange={(e) => setSectionTitle(e.target.value)} placeholder="例如：3.4 阻抗控制" />
-              </div>
-            )}
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">知识点标题 *</label>
-              <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="例如：笛卡尔阻抗控制" />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">知识摘要</label>
-              <Textarea value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="一句话描述该知识点的核心内容" rows={2} />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">前置知识点 ID（逗号分隔，可选）</label>
-              <Input value={prerequisites} onChange={(e) => setPrerequisites(e.target.value)} placeholder="例如：ch03-2-1, ch03-2-2" />
-            </div>
-            {submitMsg && (
-              <p className={`text-xs ${submitMsg.includes("失败") || submitMsg.includes("请") ? "text-destructive" : "text-success"}`}>{submitMsg}</p>
-            )}
-            <Button onClick={handleAddPoint} disabled={submitting}>
-              {submitting ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Plus className="mr-1.5 h-4 w-4" />}
-              {submitting ? "提交中..." : "添加知识点"}
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
+      <Tabs defaultValue="structure" className="w-full">
+        <TabsList>
+          <TabsTrigger value="structure">课程知识结构</TabsTrigger>
+          <TabsTrigger value="graph">知识图谱</TabsTrigger>
+          <TabsTrigger value="adjust">课程建设调整</TabsTrigger>
+          <TabsTrigger value="resources">教学资源管理</TabsTrigger>
+        </TabsList>
+        <TabsContent value="structure" className="mt-6">
+            <Card className="lg:col-span-2">
+              <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Upload className="h-5 w-5 text-primary" />
-                  教学资源管理
+                  <Layers className="h-5 w-5 text-primary" />
+                  课程知识结构
                 </CardTitle>
-                <CardDescription>上传教材、PPT 等，AI 自动解析并构建知识索引</CardDescription>
-              </div>
-              <label className="inline-flex cursor-pointer">
-                <input
-                  type="file"
-                  className="hidden"
-                  accept=".pdf,.ppt,.pptx,.docx,.txt"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) void handleUpload(f);
-                    e.target.value = "";
-                  }}
-                />
-                <span className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground">
-                  {uploading ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Upload className="mr-1.5 h-3.5 w-3.5" />}
-                  {uploading ? "上传中..." : "上传资源"}
-                </span>
-              </label>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {uploadMsg && (
-              <p className={`mb-3 text-xs ${uploadMsg.includes("失败") ? "text-destructive" : "text-success"}`}>{uploadMsg}</p>
-            )}
-            {resourcesLoading ? (
-              <div className="flex h-24 items-center justify-center text-sm text-muted-foreground">
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 加载中...
-              </div>
-            ) : resources.length === 0 ? (
-              <div className="flex h-24 items-center justify-center rounded-lg border-2 border-dashed text-sm text-muted-foreground">
-                暂无资源，点击右上角上传
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {resources.map((r) => (
-                  <div key={r.id} className="flex items-center gap-3 rounded-lg border p-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                      <FileText className="h-4 w-4 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="truncate text-sm font-medium">{r.name}</p>
-                      <p className="text-xs text-muted-foreground">{(r.size / 1024 / 1024).toFixed(1)} MB · {r.type}</p>
-                    </div>
-                    <Badge variant={r.status === "ready" ? "default" : r.status === "failed" ? "destructive" : "secondary"} className="text-xs">
-                      {STATUS_LABEL[r.status] ?? r.status}
-                    </Badge>
+                <CardDescription>
+                  五级知识体系：章节 -&gt; 小节 -&gt; 知识点 -&gt; 关联知识点 -&gt; 易错点
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <KnowledgeStructure doc={doc ?? undefined} />
+              </CardContent>
+            </Card>
+        </TabsContent>
+        <TabsContent value="graph" className="mt-6">
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Network className="h-5 w-5 text-primary" />
+                  知识图谱
+                </CardTitle>
+                <CardDescription>课程知识关联网络（实时派生）</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <KnowledgeGraph doc={doc ?? undefined} />
+              </CardContent>
+            </Card>
+        </TabsContent>
+        <TabsContent value="adjust" className="mt-6">
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Plus className="h-5 w-5 text-primary" />
+                  添加知识点
+                </CardTitle>
+                <CardDescription>新增的知识点会实时进入知识图谱，供学生答疑、练习与学情分析使用</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">所属章节</label>
+                    <select
+                      className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                      value={chapterId}
+                      onChange={(e) => { setChapterId(e.target.value); setSectionId(""); }}
+                    >
+                      <option value="">请选择章节</option>
+                      {chapters.map((c) => (
+                        <option key={c.id} value={c.id}>{c.title}</option>
+                      ))}
+                    </select>
                   </div>
-                ))}
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">所属小节</label>
+                    <select
+                      className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                      value={sectionId}
+                      onChange={(e) => setSectionId(e.target.value)}
+                      disabled={!chapterId}
+                    >
+                      <option value="">请选择小节</option>
+                      {sections.map((s) => (
+                        <option key={s.id} value={s.id}>{s.title}</option>
+                      ))}
+                      <option value="__new__">+ 新建小节</option>
+                    </select>
+                  </div>
+                </div>
+                {isNewSection && (
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">新小节标题</label>
+                    <Input value={sectionTitle} onChange={(e) => setSectionTitle(e.target.value)} placeholder="例如：3.4 阻抗控制" />
+                  </div>
+                )}
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">知识点标题 *</label>
+                  <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="例如：笛卡尔阻抗控制" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">知识摘要</label>
+                  <Textarea value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="一句话描述该知识点的核心内容" rows={2} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">前置知识点 ID（逗号分隔，可选）</label>
+                  <Input value={prerequisites} onChange={(e) => setPrerequisites(e.target.value)} placeholder="例如：ch03-2-1, ch03-2-2" />
+                </div>
+                {submitMsg && (
+                  <p className={`text-xs ${submitMsg.includes("失败") || submitMsg.includes("请") ? "text-destructive" : "text-success"}`}>{submitMsg}</p>
+                )}
+                <Button onClick={handleAddPoint} disabled={submitting}>
+                  {submitting ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Plus className="mr-1.5 h-4 w-4" />}
+                  {submitting ? "提交中..." : "添加知识点"}
+                </Button>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Box className="h-5 w-5 text-primary" />
+                  已有知识点
+                </CardTitle>
+                <CardDescription>按章节 / 小节逐级选择知识点后删除，结构与图谱会实时更新</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {deleteMsg && (
+                  <p className="text-xs text-muted-foreground">{deleteMsg}</p>
+                )}
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">所属章节</label>
+                    <select
+                      className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                      value={delChapterId}
+                      onChange={(e) => { setDelChapterId(e.target.value); setDelSectionId(""); setDelPointId(""); }}
+                    >
+                      <option value="">请选择章节</option>
+                      {chapters.map((c) => (
+                        <option key={c.id} value={c.id}>{c.title}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">所属小节</label>
+                    <select
+                      className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                      value={delSectionId}
+                      onChange={(e) => { setDelSectionId(e.target.value); setDelPointId(""); }}
+                      disabled={!delChapterId}
+                    >
+                      <option value="">请选择小节</option>
+                      {delSections.map((s) => (
+                        <option key={s.id} value={s.id}>{s.title}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">知识点</label>
+                    <select
+                      className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                      value={delPointId}
+                      onChange={(e) => setDelPointId(e.target.value)}
+                      disabled={!delSectionId}
+                    >
+                      <option value="">请选择知识点</option>
+                      {delPoints.map((p) => (
+                        <option key={p.id} value={p.id}>{p.title}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                {selectedDelPoint && (
+                  <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{selectedDelPoint.title}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {chapters.find((c) => c.id === delChapterId)?.title} · {delSections.find((s) => s.id === delSectionId)?.title}
+                      </p>
+                    </div>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      disabled={deletingId === delPointId}
+                      onClick={() => void handleDeletePoint(delPointId)}
+                    >
+                      {deletingId === delPointId ? (
+                        <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="mr-1.5 h-4 w-4" />
+                      )}
+                      {deletingId === delPointId ? "删除中..." : "删除该知识点"}
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+        <TabsContent value="resources" className="mt-6">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Upload className="h-5 w-5 text-primary" />
+                    教学资源管理
+                  </CardTitle>
+                  <CardDescription>上传教材、PPT 等，AI 自动解析并构建知识索引</CardDescription>
+                </div>
+                <label className="inline-flex cursor-pointer">
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.ppt,.pptx,.docx,.txt"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) void handleUpload(f);
+                      e.target.value = "";
+                    }}
+                  />
+                  <span className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground">
+                    {uploading ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Upload className="mr-1.5 h-3.5 w-3.5" />}
+                    {uploading ? "上传中..." : "上传资源"}
+                  </span>
+                </label>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+            </CardHeader>
+            <CardContent>
+              {uploadMsg && (
+                <p className={`mb-3 text-xs ${uploadMsg.includes("失败") ? "text-destructive" : "text-success"}`}>{uploadMsg}</p>
+              )}
+              {resourcesLoading ? (
+                <div className="flex h-24 items-center justify-center text-sm text-muted-foreground">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 加载中...
+                </div>
+              ) : resources.length === 0 ? (
+                <div className="flex h-24 items-center justify-center rounded-lg border-2 border-dashed text-sm text-muted-foreground">
+                  暂无资源，点击右上角上传
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {resources.map((r) => (
+                    <div key={r.id} className="flex items-center gap-3 rounded-lg border p-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                        <FileText className="h-4 w-4 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="truncate text-sm font-medium">{r.name}</p>
+                        <p className="text-xs text-muted-foreground">{(r.size / 1024 / 1024).toFixed(1)} MB · {r.type}</p>
+                      </div>
+                      <Badge variant={r.status === "ready" ? "default" : r.status === "failed" ? "destructive" : "secondary"} className="text-xs">
+                        {STATUS_LABEL[r.status] ?? r.status}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

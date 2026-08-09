@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { EChart } from "@/components/teaching/charts/echart";
+import { TeacherLoopCard } from "@/components/teaching/teacher-loop-card";
 import type { TeacherAnalyticsResult, TeacherAnalyticsStudent } from "@/lib/teaching/types";
 
 const DEFAULT_RADAR = [
@@ -253,6 +254,8 @@ export default function TeacherOverviewPage() {
           </Link>
         </Button>
       </PageHeader>
+
+      <TeacherLoopCard />
 
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         <Badge variant="outline">模型 {modelString}</Badge>

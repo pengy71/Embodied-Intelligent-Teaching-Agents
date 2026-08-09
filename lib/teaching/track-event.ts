@@ -3,6 +3,7 @@
 export type LearningEventType = "study" | "practice" | "qa" | "quiz" | "review";
 
 export interface TrackLearningEventInput {
+  /** Deprecated - the server now derives the student from the session. */
   studentId?: string;
   eventType: LearningEventType;
   knowledgeNodeId: string;
@@ -11,9 +12,8 @@ export interface TrackLearningEventInput {
   payload?: Record<string, unknown>;
 }
 
-const DEFAULT_STUDENT_ID = "2024001";
-
-/** Best-effort learning-event tracking. Never throws / never blocks the UI. */
+/** Best-effort learning-event tracking. Never throws / never blocks the UI.
+ *  The student id is resolved on the server from the authenticated session. */
 export async function trackLearningEvent(input: TrackLearningEventInput): Promise<void> {
   if (!input.knowledgeNodeId) return;
   try {
@@ -21,7 +21,6 @@ export async function trackLearningEvent(input: TrackLearningEventInput): Promis
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        studentId: input.studentId ?? DEFAULT_STUDENT_ID,
         eventType: input.eventType,
         knowledgeNodeId: input.knowledgeNodeId,
         score: input.score ?? null,

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { SESSION_COOKIE, verifySessionToken } from './lib/auth/session';
+
 /** Convert string to Uint8Array */
 function encode(str: string): Uint8Array {
   return new TextEncoder().encode(str);
@@ -13,7 +15,7 @@ function bufToHex(buf: ArrayBuffer): string {
 }
 
 /** Verify an HMAC-signed token using Web Crypto API (Edge-compatible) */
-async function verifyToken(token: string, accessCode: string): Promise<boolean> {
+async function verifyAccessToken(token: string, accessCode: string): Promise<boolean> {
   const dotIndex = token.indexOf('.');
   if (dotIndex === -1) return false;
 
@@ -32,7 +34,6 @@ async function verifyToken(token: string, accessCode: string): Promise<boolean> 
   const data = encode(timestamp);
   const expected = bufToHex(await crypto.subtle.sign('HMAC', key, data.buffer as ArrayBuffer));
 
-  // Constant-length comparison (not truly constant-time in JS, but sufficient here)
   if (signature.length !== expected.length) return false;
   let mismatch = 0;
   for (let i = 0; i < signature.length; i++) {
@@ -41,13 +42,42 @@ async function verifyToken(token: string, accessCode: string): Promise<boolean> 
   return mismatch === 0;
 }
 
+function isTeachingPath(pathname: string): boolean {
+  return pathname === '/teaching' || pathname.startsWith('/teaching/') || pathname.startsWith('/api/teaching/');
+}
+
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // Always allow auth endpoints and the login page
+  if (pathname.startsWith('/api/auth/') || pathname === '/login') {
+    return NextResponse.next();
+  }
+
+  // Protect teaching routes (pages + API) with session auth
+  if (isTeachingPath(pathname)) {
+    const token = request.cookies.get(SESSION_COOKIE)?.value;
+    const user = await verifySessionToken(token);
+    if (user) {
+      return NextResponse.next();
+    }
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json(
+        { success: false, errorCode: 'INVALID_CREDENTIALS', error: '请先登录' },
+        { status: 401 },
+      );
+    }
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = '/login';
+    loginUrl.searchParams.set('from', pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  // Existing access-code gate for the rest of the app
   const accessCode = process.env.ACCESS_CODE;
   if (!accessCode) {
     return NextResponse.next();
   }
-
-  const { pathname } = request.nextUrl;
 
   // Whitelist: access-code endpoints, health check
   if (pathname.startsWith('/api/access-code/') || pathname === '/api/health') {
@@ -56,7 +86,7 @@ export async function middleware(request: NextRequest) {
 
   // Check cookie — validate HMAC signature, not just existence
   const cookie = request.cookies.get('openmaic_access');
-  if (cookie?.value && (await verifyToken(cookie.value, accessCode))) {
+  if (cookie?.value && (await verifyAccessToken(cookie.value, accessCode))) {
     return NextResponse.next();
   }
 

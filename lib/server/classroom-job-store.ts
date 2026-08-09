@@ -1,16 +1,11 @@
-import { promises as fs } from 'fs';
-import path from 'path';
+import type { PoolClient } from 'pg';
 import type {
   ClassroomGenerationProgress,
   ClassroomGenerationStep,
   GenerateClassroomInput,
   GenerateClassroomResult,
 } from '@/lib/server/classroom-generation';
-import {
-  CLASSROOM_JOBS_DIR,
-  ensureClassroomJobsDir,
-  writeJsonFileAtomic,
-} from '@/lib/server/classroom-storage';
+import { getClassroomPool } from '@/lib/server/classroom-storage';
 
 export type ClassroomGenerationJobStatus = 'queued' | 'running' | 'succeeded' | 'failed';
 
@@ -40,10 +35,6 @@ export interface ClassroomGenerationJob {
   error?: string;
 }
 
-function jobFilePath(jobId: string) {
-  return path.join(CLASSROOM_JOBS_DIR, `${jobId}.json`);
-}
-
 function buildInputSummary(input: GenerateClassroomInput): ClassroomGenerationJob['inputSummary'] {
   return {
     requirementPreview:
@@ -54,22 +45,47 @@ function buildInputSummary(input: GenerateClassroomInput): ClassroomGenerationJo
   };
 }
 
-/** Simple per-job mutex to serialize read-modify-write on the same job file. */
-const jobLocks = new Map<string, Promise<void>>();
+async function ensureClassroomJobsSchema(): Promise<void> {
+  await getClassroomPool().query(`
+    CREATE TABLE IF NOT EXISTS classroom_jobs (
+      id text PRIMARY KEY,
+      status text NOT NULL,
+      data jsonb NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+}
 
-async function withJobLock<T>(jobId: string, fn: () => Promise<T>): Promise<T> {
-  const prev = jobLocks.get(jobId) ?? Promise.resolve();
-  let resolve: () => void;
-  const next = new Promise<void>((r) => {
-    resolve = r;
-  });
-  jobLocks.set(jobId, next);
+/** Transactional read-modify-write on a job row (replaces the in-process mutex). */
+async function withJobTx(
+  jobId: string,
+  fn: (existing: ClassroomGenerationJob) => Promise<ClassroomGenerationJob>,
+): Promise<ClassroomGenerationJob> {
+  const client: PoolClient = await getClassroomPool().connect();
   try {
-    await prev;
-    return await fn();
+    await client.query('BEGIN');
+    const { rows } = await client.query('SELECT data FROM classroom_jobs WHERE id = $1 FOR UPDATE', [jobId]);
+    if (!rows.length) {
+      await client.query('ROLLBACK');
+      throw new Error(`Classroom generation job not found: ${jobId}`);
+    }
+    const updated = await fn(rows[0].data as ClassroomGenerationJob);
+    await client.query(
+      'UPDATE classroom_jobs SET data = $1::jsonb, status = $2, updated_at = now() WHERE id = $3',
+      [JSON.stringify(updated), updated.status, jobId],
+    );
+    await client.query('COMMIT');
+    return updated;
+  } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      /* ignore rollback errors */
+    }
+    throw err;
   } finally {
-    resolve!();
-    if (jobLocks.get(jobId) === next) jobLocks.delete(jobId);
+    client.release();
   }
 }
 
@@ -114,67 +130,46 @@ export async function createClassroomGenerationJob(
     scenesGenerated: 0,
   };
 
-  await ensureClassroomJobsDir();
-  await writeJsonFileAtomic(jobFilePath(jobId), job);
+  await ensureClassroomJobsSchema();
+  await getClassroomPool().query(
+    `INSERT INTO classroom_jobs (id, status, data, created_at, updated_at)
+     VALUES ($1, $2, $3::jsonb, now(), now())
+     ON CONFLICT (id) DO UPDATE SET status = EXCLUDED.status, data = EXCLUDED.data, updated_at = now()`,
+    [jobId, job.status, JSON.stringify(job)],
+  );
   return job;
 }
 
 export async function readClassroomGenerationJob(
   jobId: string,
 ): Promise<ClassroomGenerationJob | null> {
-  try {
-    const content = await fs.readFile(jobFilePath(jobId), 'utf-8');
-    const job = JSON.parse(content) as ClassroomGenerationJob;
-    return markStaleIfNeeded(job);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return null;
-    }
-    throw error;
-  }
+  await ensureClassroomJobsSchema();
+  const { rows } = await getClassroomPool().query('SELECT data FROM classroom_jobs WHERE id = $1', [jobId]);
+  if (!rows.length) return null;
+  return markStaleIfNeeded(rows[0].data as ClassroomGenerationJob);
 }
 
 export async function updateClassroomGenerationJob(
   jobId: string,
   patch: Partial<ClassroomGenerationJob>,
 ): Promise<ClassroomGenerationJob> {
-  return withJobLock(jobId, async () => {
-    const existing = await readClassroomGenerationJob(jobId);
-    if (!existing) {
-      throw new Error(`Classroom generation job not found: ${jobId}`);
-    }
-
-    const updated: ClassroomGenerationJob = {
-      ...existing,
-      ...patch,
-      updatedAt: new Date().toISOString(),
-    };
-
-    await writeJsonFileAtomic(jobFilePath(jobId), updated);
-    return updated;
-  });
+  return withJobTx(jobId, async (existing) => ({
+    ...existing,
+    ...patch,
+    updatedAt: new Date().toISOString(),
+  }));
 }
 
 export async function markClassroomGenerationJobRunning(
   jobId: string,
 ): Promise<ClassroomGenerationJob> {
-  return withJobLock(jobId, async () => {
-    const existing = await readClassroomGenerationJob(jobId);
-    if (!existing) {
-      throw new Error(`Classroom generation job not found: ${jobId}`);
-    }
-
-    const updated: ClassroomGenerationJob = {
-      ...existing,
-      status: 'running',
-      startedAt: existing.startedAt || new Date().toISOString(),
-      message: 'Classroom generation started',
-      updatedAt: new Date().toISOString(),
-    };
-
-    await writeJsonFileAtomic(jobFilePath(jobId), updated);
-    return updated;
-  });
+  return withJobTx(jobId, async (existing) => ({
+    ...existing,
+    status: 'running',
+    startedAt: existing.startedAt || new Date().toISOString(),
+    message: 'Classroom generation started',
+    updatedAt: new Date().toISOString(),
+  }));
 }
 
 export async function updateClassroomGenerationJobProgress(

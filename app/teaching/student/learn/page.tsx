@@ -21,6 +21,7 @@ import {
   RefreshCw,
   Loader2,
 } from "lucide-react";
+import { FloatingQA } from "@/components/teaching/floating-qa";
 
 const STEP_LABELS: Record<string, string> = {
   initializing: "初始化",
@@ -92,6 +93,11 @@ export default function LearnPage() {
   function handleMarkLearned() {
     if (!selectedPointId) return;
     void progress.markLearned(selectedPointId);
+  }
+
+  function handleRegenerate() {
+    if (!selectedPointId) return;
+    start(selectedPointId, { force: true });
   }
 
   // 选取起始知识点：?point= 参数 > 首个未学点 > 第一章首点
@@ -268,6 +274,11 @@ export default function LearnPage() {
                   <p className="mt-1 text-sm text-muted-foreground">
                     已生成 {state.scenesGenerated} 个场景的多智能体课堂讲解
                   </p>
+                  {state.cached && (
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      已复用历史生成内容，点击「重新生成」可更新
+                    </p>
+                  )}
                 </div>
                 <div className="flex gap-3">
                   {state.classroomId && (
@@ -281,6 +292,10 @@ export default function LearnPage() {
                   <Button variant="outline" size="lg" onClick={handleMarkLearned}>
                     <CheckCircle2 className="mr-1 h-4 w-4" />
                     标记已学完
+                  </Button>
+                  <Button variant="outline" size="lg" onClick={handleRegenerate}>
+                    <RefreshCw className="mr-1 h-4 w-4" />
+                    重新生成
                   </Button>
                 </div>
               </div>
@@ -306,6 +321,7 @@ export default function LearnPage() {
           </CardContent>
         </Card>
       </div>
+      <FloatingQA />
     </div>
   );
 }

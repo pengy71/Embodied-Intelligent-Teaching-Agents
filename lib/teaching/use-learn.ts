@@ -32,6 +32,7 @@ export interface LearnJobState {
   totalScenes?: number;
   classroomId?: string;
   classroomUrl?: string;
+  cached?: boolean;
   error: string | null;
 }
 
@@ -46,7 +47,7 @@ const IDLE_STATE: LearnJobState = {
 
 export interface UseLearnSessionResult {
   state: LearnJobState;
-  start: (pointId: string) => void;
+  start: (pointId: string, options?: { force?: boolean }) => void;
   reset: () => void;
 }
 
@@ -73,15 +74,16 @@ export function useLearnSession(): UseLearnSessionResult {
   }, [stopPolling]);
 
   const start = useCallback(
-    (pointId: string) => {
+    (pointId: string, options?: { force?: boolean }) => {
       stopPolling();
       activePointRef.current = pointId;
       setState({
         status: 'generating',
         step: 'initializing',
         progress: 0,
-        message: '正在准备多智能体讲解…',
+        message: options?.force ? '正在重新生成多智能体讲解…' : '正在准备多智能体讲解…',
         scenesGenerated: 0,
+        cached: false,
         error: null,
       });
 
@@ -116,13 +118,30 @@ export function useLearnSession(): UseLearnSessionResult {
           const res = await fetch('/api/teaching/learn', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ pointId }),
+            body: JSON.stringify({ pointId, force: options?.force === true }),
           });
           if (!res.ok) {
             const txt = await res.text().catch(() => '');
             throw new Error(`请求失败 (${res.status})${txt ? `：${txt}` : ''}`);
           }
           const json = await res.json();
+
+          // 命中缓存：直接进入成功态，无需轮询
+          if (json.cached) {
+            if (activePointRef.current !== pointId) return;
+            setState({
+              status: 'succeeded',
+              step: 'completed',
+              progress: 100,
+              message: '已复用历史生成的讲解',
+              scenesGenerated: typeof json.scenesCount === 'number' ? json.scenesCount : 0,
+              classroomId: json.classroomId,
+              classroomUrl: json.url,
+              cached: true,
+              error: null,
+            });
+            return;
+          }
           const jobId = json.jobId;
           const interval = typeof json.pollIntervalMs === 'number' ? json.pollIntervalMs : 5000;
           if (!jobId) throw new Error('未返回 jobId');
@@ -166,9 +185,8 @@ export function useStudentProgress(): UseStudentProgressResult {
   const [loading, setLoading] = useState(true);
 
   const reload = useCallback(async () => {
-    const studentId = getOrCreateStudentId();
     try {
-      const res = await fetch(`/api/teaching/progress?studentId=${encodeURIComponent(studentId)}`, {
+      const res = await fetch(`/api/teaching/progress`, {
         cache: 'no-store',
       });
       if (!res.ok) return;
@@ -186,13 +204,12 @@ export function useStudentProgress(): UseStudentProgressResult {
   }, []);
 
   const markLearned = useCallback(async (pointId: string) => {
-    const studentId = getOrCreateStudentId();
     setProgress((prev) => ({ ...prev, [pointId]: { pointId, status: 'learned' } }));
     try {
       await fetch('/api/teaching/progress', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId, pointId, status: 'learned' }),
+        body: JSON.stringify({ pointId, status: 'learned' }),
       });
     } catch {
       /* ignore */

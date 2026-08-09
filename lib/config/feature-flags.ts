@@ -82,3 +82,12 @@ export function isVideoExportEnabled(): boolean {
 export function isPptxImportEnabled(): boolean {
   return readBoolean(process.env.NEXT_PUBLIC_ENABLE_PPTX_IMPORT);
 }
+
+/**
+ * Server-only gate for the teaching RAG Q&A pipeline (vector retrieval + LLM).
+ * Default ON - when disabled, the QA route falls back to keyword matching + LLM
+ * without vector search. Reads TEACHING_RAG_ENABLED.
+ */
+export function isTeachingRagEnabled(): boolean {
+  return readBoolean(process.env.TEACHING_RAG_ENABLED ?? 'true');
+}

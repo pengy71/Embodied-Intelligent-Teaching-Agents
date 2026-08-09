@@ -1,6 +1,10 @@
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { loadKnowledge, isTeachingStoreConfigured } from '@/lib/teaching/store';
-import { getAllPoints, getPoint, type KnowledgeDoc, type KnowledgePoint } from '@/lib/teaching/knowledge-doc';
+import { getAllPoints, getPoint, type KnowledgeDoc } from '@/lib/teaching/knowledge-doc';
+import { getLearningEvents } from '@/lib/teaching/db';
+import { DEFAULT_TEACHING_COURSE_ID } from '@/lib/teaching/seed';
+import { getSessionUser } from '@/lib/auth/accounts';
+import type { TeachingLearningEvent } from '@/lib/teaching/types';
 
 interface StudentProgress {
   masteredPoints: string[];
@@ -25,6 +29,8 @@ interface TodaySuggestion {
   reason: string;
 }
 
+const MASTERED_THRESHOLD = 70;
+const WEAK_POINT_THRESHOLD = 50;
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -34,20 +40,61 @@ export async function GET(request: Request) {
     return apiError('INVALID_REQUEST', 503, 'Teaching knowledge base not configured: please set DATABASE_URL');
   }
   try {
-    const doc = await loadKnowledge();
-    const style = new URL(request.url).searchParams.get('style') ?? '引导启发型';
-    const depth = new URL(request.url).searchParams.get('depth') ?? '标准';
-    const allPoints = getAllPoints(doc);
+    const user = await getSessionUser();
+    if (!user) {
+      return apiError('INVALID_CREDENTIALS', 401, '请先登录');
+    }
+    const url = new URL(request.url);
+    const courseId = url.searchParams.get('courseId') || DEFAULT_TEACHING_COURSE_ID;
+    // Students always use their own id; teachers may specify one to preview.
+    const studentId = user.role === 'student' ? user.studentId : url.searchParams.get('studentId');
+    if (!studentId) {
+      return apiError('INVALID_REQUEST', 400, 'studentId is required');
+    }
 
-    const studentProgress = {
-      masteredPoints: ['ch01-1-1', 'ch01-1-2', 'ch01-2-1', 'ch01-2-2'],
-      currentChapter: 'ch02',
-      weakPoints: ['ch01-1-3', 'ch01-2-3'],
-      learningHistory: [
-        { pointId: 'ch01-1-1', timestamp: Date.now() - 86400000 * 3, mastery: 90 },
-        { pointId: 'ch01-1-2', timestamp: Date.now() - 86400000 * 2, mastery: 85 },
-        { pointId: 'ch01-2-1', timestamp: Date.now() - 86400000, mastery: 75 },
-      ]
+    const doc = await loadKnowledge();
+    const style = url.searchParams.get('style') ?? '引导启发型';
+    const depth = url.searchParams.get('depth') ?? '标准';
+    const allPoints = getAllPoints(doc);
+    const events = await getLearningEvents(courseId, studentId);
+
+    // Real per-point mastery aggregated from the student's learning events.
+    const masteryByPoint = new Map<string, number>();
+    for (const point of allPoints) {
+      masteryByPoint.set(point.id, computePointMastery(point.id, events));
+    }
+
+    const masteredPoints = allPoints
+      .filter((point) => (masteryByPoint.get(point.id) ?? 0) >= MASTERED_THRESHOLD)
+      .map((point) => point.id);
+    const weakPoints = allPoints
+      .filter((point) => (masteryByPoint.get(point.id) ?? 0) < WEAK_POINT_THRESHOLD)
+      .sort((a, b) => (masteryByPoint.get(a.id) ?? 0) - (masteryByPoint.get(b.id) ?? 0))
+      .map((point) => point.id)
+      .slice(0, 8);
+
+    const currentChapter =
+      doc.chapters.find((chapter) =>
+        chapter.sections.some((section) => section.points.some((point) => !masteredPoints.includes(point.id))),
+      )?.id ?? doc.chapters[0]?.id ?? '';
+
+    const learningHistory = events
+      .filter((event) => getPoint(doc, event.knowledgeNodeId))
+      .map((event) => ({
+        pointId: event.knowledgeNodeId,
+        timestamp: new Date(event.occurredAt).getTime(),
+        mastery:
+          typeof event.score === 'number'
+            ? clampPercent(event.score)
+            : masteryByPoint.get(event.knowledgeNodeId) ?? 0,
+      }))
+      .sort((a, b) => a.timestamp - b.timestamp);
+
+    const studentProgress: StudentProgress = {
+      masteredPoints,
+      currentChapter,
+      weakPoints,
+      learningHistory,
     };
 
     const recommendations = generateRecommendations(doc, studentProgress);
@@ -71,6 +118,21 @@ export async function GET(request: Request) {
   } catch (err) {
     return apiError('INTERNAL_ERROR', 500, err instanceof Error ? err.message : 'Failed to generate learning suggestions');
   }
+}
+
+function clampPercent(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+/** Compute real mastery (0-100) for a knowledge point from the student's learning events. */
+function computePointMastery(pointId: string, events: TeachingLearningEvent[], baseline = 50): number {
+  const scores = events
+    .filter((event) => event.knowledgeNodeId === pointId)
+    .map((event) => event.score)
+    .filter((score): score is number => typeof score === 'number' && Number.isFinite(score));
+  if (scores.length === 0) return baseline;
+  return clampPercent(scores.reduce((sum, score) => sum + score, 0) / scores.length);
 }
 
 function generateRecommendations(doc: KnowledgeDoc, studentProgress: StudentProgress) {

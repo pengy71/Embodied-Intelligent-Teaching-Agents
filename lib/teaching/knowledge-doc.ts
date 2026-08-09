@@ -80,6 +80,15 @@ export function getPointSection(doc: KnowledgeDoc, pointId: string): KnowledgeSe
   return undefined;
 }
 
+export function getPointSectionNumber(doc: KnowledgeDoc, pointId: string): number | undefined {
+  for (const c of doc.chapters) {
+    for (let i = 0; i < c.sections.length; i++) {
+      if (c.sections[i].points.some((p) => p.id === pointId)) return i + 1;
+    }
+  }
+  return undefined;
+}
+
 export function getChapterPointCount(doc: KnowledgeDoc, chapterId: string): number {
   const c = getChapter(doc, chapterId);
   if (!c) return 0;

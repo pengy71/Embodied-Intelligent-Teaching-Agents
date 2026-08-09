@@ -2,14 +2,20 @@
 
 import { useCallback, useState } from 'react';
 
+export interface QASource {
+  pointId: string | null;
+  title: string;
+  chapter: string;
+  section?: string;
+  chapterNumber?: number;
+  sectionNumber?: number;
+  pageReference?: string;
+  textExcerpt?: string;
+}
+
 export interface QAResponse {
   answer: string;
-  sources: Array<{
-    pointId: string;
-    title: string;
-    chapter: string;
-    pageReference?: string;
-  }>;
+  sources: QASource[];
   relatedPoints: Array<{
     id: string;
     title: string;

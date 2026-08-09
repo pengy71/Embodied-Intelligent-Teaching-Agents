@@ -4,8 +4,11 @@ import {
   loadKnowledge,
   withKnowledgeTx,
   saveKnowledgeInTx,
+  deletePoint,
   isTeachingStoreConfigured,
 } from '@/lib/teaching/store';
+import { reindexKnowledgePoints } from '@/lib/teaching/reindex';
+import { isEmbeddingConfigured } from '@/lib/teaching/embedding';
 import { buildGraphEdges, computeStats } from '@/lib/teaching/knowledge-doc';
 import type { KnowledgePoint } from '@/lib/teaching/knowledge-doc';
 
@@ -104,8 +107,31 @@ export async function POST(req: NextRequest) {
       return { point, sectionId: section.id, chapterId: chapter.id, doc };
     });
 
+    if (isEmbeddingConfigured()) void reindexKnowledgePoints().catch(() => undefined);
     return apiSuccess(outcome, 201);
   } catch (err) {
     return apiError('INTERNAL_ERROR', 500, err instanceof Error ? err.message : '新增知识点失败');
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  if (!isTeachingStoreConfigured()) {
+    return apiError('INVALID_REQUEST', 503, '教学知识库未配置：请设置 DATABASE_URL');
+  }
+  try {
+    const body = (await req.json().catch(() => ({}))) as { pointId?: string };
+    const pointId = String(body?.pointId ?? '').trim();
+    if (!pointId) {
+      return apiError('INVALID_REQUEST', 400, 'pointId 不能为空');
+    }
+    const removed = await deletePoint(pointId);
+    if (!removed) {
+      return apiError('NOT_FOUND', 404, '未找到知识点：' + pointId);
+    }
+    const doc = await loadKnowledge();
+    if (isEmbeddingConfigured()) void reindexKnowledgePoints().catch(() => undefined);
+    return apiSuccess({ doc, removed: true });
+  } catch (err) {
+    return apiError('INTERNAL_ERROR', 500, err instanceof Error ? err.message : '删除知识点失败');
   }
 }
