@@ -3,14 +3,11 @@ import localFont from 'next/font/local';
 import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
 import './globals.css';
-import '@openmaic/renderer/fonts.css';
 import 'animate.css';
 import 'katex/dist/katex.min.css';
 import { ThemeProvider } from '@/lib/hooks/use-theme';
 import { I18nProvider } from '@/lib/hooks/use-i18n';
 import { Toaster } from '@/components/ui/sonner';
-import { ServerProvidersInit } from '@/components/server-providers-init';
-import { AccessCodeGuard } from '@/components/access-code-guard';
 
 const inter = localFont({
   src: '../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2',
@@ -19,9 +16,9 @@ const inter = localFont({
 });
 
 export const metadata: Metadata = {
-  title: 'OpenMAIC',
+  title: '具身智能课程教学智能体',
   description:
-    'The open-source AI interactive classroom. Upload a PDF to instantly generate an immersive, multi-agent learning experience.',
+    '面向具身智能课程的 AI 教学平台：课程知识图谱、长期学习记忆、多智能体协同，实现"教师-AI-学生"协同的智能教学模式。',
 };
 
 export default function RootLayout({
@@ -30,15 +27,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={inter.variable} suppressHydrationWarning>
+    <html lang="zh-CN" className={inter.variable} suppressHydrationWarning>
       <body
         className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}
         suppressHydrationWarning
       >
         <ThemeProvider>
           <I18nProvider>
-            <ServerProvidersInit />
-            <AccessCodeGuard>{children}</AccessCodeGuard>
+            {children}
             <Toaster position="top-center" />
           </I18nProvider>
         </ThemeProvider>
