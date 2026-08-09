@@ -77,11 +77,17 @@ export function useSession() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),
     });
-    const json = await res.json();
-    if (!res.ok || !json.success) {
-      throw new Error(json.error || '登录失败');
+    const text = await res.text();
+    let json: { success?: boolean; error?: string; user?: SessionUser } = {};
+    try {
+      json = text ? JSON.parse(text) : {};
+    } catch {
+      // ignore parse errors; fall through to a status-based message
     }
-    setSession(json.user);
+    if (!res.ok || !json.success) {
+      throw new Error(json.error || `登录失败（HTTP ${res.status}）`);
+    }
+    setSession(json.user as SessionUser);
     return json.user as SessionUser;
   }, []);
 

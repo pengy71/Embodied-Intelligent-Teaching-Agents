@@ -33,12 +33,17 @@ export async function POST(req: NextRequest) {
     return apiError('INVALID_CREDENTIALS', 401, '用户名或密码错误');
   }
 
-  const token = await createSessionToken({
-    uid: account.id,
-    role: account.role,
-    studentId: account.studentId,
-    name: account.displayName,
-  });
+  let token: string;
+  try {
+    token = await createSessionToken({
+      uid: account.id,
+      role: account.role,
+      studentId: account.studentId,
+      name: account.displayName,
+    });
+  } catch {
+    return apiError('INTERNAL_ERROR', 500, '会话签发失败：请检查服务端 AUTH_SECRET 配置');
+  }
 
   const res = NextResponse.json({
     success: true,
