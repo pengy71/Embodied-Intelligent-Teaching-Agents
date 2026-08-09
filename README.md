@@ -70,6 +70,8 @@ pnpm postinstall   # 构建内部包（首次或依赖更新后）
 ### 配置
 复制 `.env.example` 为 `.env.local`，按需填写数据库与模型相关配置（`DATABASE_URL`、模型 API Key 等）。
 
+> 本地开发（`pnpm dev`）无需额外配置 `AUTH_SECRET` 即可登录；部署到生产环境前，请在 `.env.local` 中设置随机的 `AUTH_SECRET`（生成方式见 `.env.example`）。
+
 ### 开发
 ```bash
 pnpm dev          # http://localhost:3000

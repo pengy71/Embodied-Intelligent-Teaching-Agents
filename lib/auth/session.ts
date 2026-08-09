@@ -24,12 +24,22 @@ export const SESSION_COOKIE = 'teaching_session';
 /** 7 days in seconds. */
 const SESSION_TTL = 7 * 24 * 60 * 60;
 
+/**
+ * Fixed, insecure secret used only when AUTH_SECRET is unset in development,
+ * so a fresh clone can `pnpm dev` and log in without extra config.
+ * MUST NOT be used in production (NODE_ENV === 'production' still throws).
+ * Stable across Edge & Node runtimes so signed tokens verify correctly.
+ */
+const DEV_FALLBACK_SECRET =
+  'dev-only-insecure-secret-please-set-AUTH_SECRET-in-.env.local';
+
 function getAuthSecret(): string {
   const secret = process.env.AUTH_SECRET;
-  if (!secret) {
-    throw new Error('AUTH_SECRET is not set. Add it to your .env.local');
+  if (secret) return secret;
+  if (process.env.NODE_ENV !== 'production') {
+    return DEV_FALLBACK_SECRET;
   }
-  return secret;
+  throw new Error('AUTH_SECRET is not set. Add it to your .env.local (see .env.example).');
 }
 
 /* ----------------------------- base64url helpers ----------------------------- */
