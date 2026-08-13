@@ -64,18 +64,25 @@ export default function TeacherToolsPage() {
     setIsLoadingAnalytics(true);
     setAnalyticsError(null);
     try {
-      const response = await fetch("/api/teaching/teacher-analytics", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ force }),
-      });
+      const response = force
+        ? await fetch("/api/teaching/teacher-analytics", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ force: true }),
+          })
+        : await fetch("/api/teaching/teacher-analytics", { method: "GET" });
       const data = await response.json();
       if (!response.ok || !data.success) {
         throw new Error(data.error || "学情分析 agent 调用失败");
       }
-      setAnalytics(data.result as TeacherAnalyticsResult);
+      const result = data.result as TeacherAnalyticsResult | null;
+      if (result) {
+        setAnalytics(result);
+      }
     } catch (error) {
-      setAnalyticsError(error instanceof Error ? error.message : "学情分析 agent 调用失败");
+      if (force) {
+        setAnalyticsError(error instanceof Error ? error.message : "学情分析 agent 调用失败");
+      }
     } finally {
       setIsLoadingAnalytics(false);
     }

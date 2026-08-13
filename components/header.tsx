@@ -22,9 +22,9 @@ export function Header({ currentSceneTitle, mode, canEdit, onToggleEditMode }: H
       <header className="h-20 px-8 flex items-center justify-between z-10 bg-transparent gap-4">
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <button
-            onClick={() => router.push('/')}
+            onClick={() => router.back()}
             className="shrink-0 p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
-            title={t('generation.backToHome')}
+            title={t('generation.back')}
           >
             <ArrowLeft className="w-5 h-5" />
           </button>

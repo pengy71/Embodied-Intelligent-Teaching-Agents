@@ -74,7 +74,7 @@ export default function StudentAssistantPage() {
   const [completedTaskIds, setCompletedTaskIds] = useState(
     () => new Set(personalStats.todayPlan.filter((task) => task.done).map((task) => String(task.id))),
   );
-  const [lastUpdated, setLastUpdated] = useState("正在生成");
+  const [lastUpdated, setLastUpdated] = useState("加载中");
 
   const stats = guidance?.stats ?? {
     studyDays: personalStats.studyDays,
@@ -92,15 +92,49 @@ export default function StudentAssistantPage() {
   }));
   const weakPoints = guidance?.weakPoints.map((point) => point.title) ?? personalStats.weakPoints;
   const path = guidance?.path ?? learningPath;
+  const recommendedLearnPointId =
+    todayPlan.find((task) => !task.done && task.type === "新知" && task.targetNodeId)?.targetNodeId ??
+    todayPlan.find((task) => !task.done && task.targetNodeId)?.targetNodeId ??
+    "";
+  const todayLearnHref = recommendedLearnPointId
+    ? `/teaching/student/learn?point=${encodeURIComponent(recommendedLearnPointId)}`
+    : "/teaching/student/learn";
 
-  const loadGuidance = async (force = false) => {
+  // 进入页面只读取数据库已存储的导学结果，不会调用大模型
+  const loadStoredGuidance = async () => {
+    setIsLoadingGuidance(true);
+    try {
+      const response = await fetch("/api/teaching/student-guidance", { method: "GET" });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "读取导学数据失败");
+      }
+      const result = (data.result as StudentGuidanceResult | null) ?? null;
+      if (result) {
+        setGuidance(result);
+        setLastUpdated(new Date(result.generatedAt).toLocaleString("zh-CN"));
+        setCompletedTaskIds(
+          new Set(result.todayPlan.filter((task) => task.done).map((task) => task.id)),
+        );
+      } else {
+        setLastUpdated("尚未生成");
+      }
+    } catch {
+      setLastUpdated("尚未生成");
+    } finally {
+      setIsLoadingGuidance(false);
+    }
+  };
+
+  // 手动刷新时才调用大模型重新生成；失败时保留原有数据
+  const regenerateGuidance = async () => {
     setIsLoadingGuidance(true);
     setGuidanceError(null);
     try {
       const response = await fetch("/api/teaching/student-guidance", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ force }),
+        body: JSON.stringify({ force: true }),
       });
       const data = await response.json();
       if (!response.ok || !data.success) {
@@ -109,7 +143,10 @@ export default function StudentAssistantPage() {
       const result = data.result as StudentGuidanceResult;
       setGuidance(result);
       setLastUpdated(new Date(result.generatedAt).toLocaleString("zh-CN"));
-      setCompletedTaskIds(new Set(result.todayPlan.filter((task) => task.done).map((task) => task.id)));
+      setCompletedTaskIds(
+        new Set(result.todayPlan.filter((task) => task.done).map((task) => task.id)),
+      );
+      toast.success("个性导学 agent 已更新");
     } catch (error) {
       const message = error instanceof Error ? error.message : "个性导学 agent 调用失败";
       setGuidanceError(message);
@@ -120,7 +157,7 @@ export default function StudentAssistantPage() {
   };
 
   useEffect(() => {
-    void loadGuidance(false);
+    void loadStoredGuidance();
   }, []);
 
   const updatePreference = <K extends keyof StudentAssistantPreferences>(key: K, value: StudentAssistantPreferences[K]) => {
@@ -138,8 +175,7 @@ export default function StudentAssistantPage() {
   };
 
   const refreshRecommendation = () => {
-    void loadGuidance(true);
-    toast.success("正在调用个性导学 agent 重新规划");
+    void regenerateGuidance();
   };
 
   const savePreferences = () => {
@@ -246,6 +282,24 @@ export default function StudentAssistantPage() {
                 <p className="text-sm leading-relaxed text-foreground">
                   {guidance?.guidanceMessage ?? "正在结合学习画像、知识图谱和数据库学习记录生成导学建议。"}
                 </p>
+                {guidance?.portrait && (
+                  <div className="mt-3 rounded-md border bg-muted/30 p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium">多维度学情画像打分</span>
+                      <Badge variant="secondary" className="text-xs">
+                        {guidance.portrait.portraitScore} 分 · {guidance.portrait.level}
+                      </Badge>
+                    </div>
+                    <div className="mt-2 grid grid-cols-5 gap-1 text-center">
+                      {guidance.portrait.dimensions.map((dim) => (
+                        <div key={dim.key}>
+                          <div className="text-sm font-semibold">{dim.score}</div>
+                          <div className="text-[10px] text-muted-foreground">{dim.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {guidance?.modelString && (
                   <p className="mt-3 text-xs text-muted-foreground">模型：{guidance.modelString}</p>
                 )}
@@ -255,7 +309,7 @@ export default function StudentAssistantPage() {
                     size="lg"
                     className="h-12 px-8 text-base font-semibold shadow-lg shadow-primary/25 transition-all hover:shadow-xl hover:shadow-primary/30"
                   >
-                    <Link href="/teaching/student/learn">
+                    <Link href={todayLearnHref}>
                       <ChevronRight className="mr-1 h-5 w-5" />
                       开始今日学习
                     </Link>

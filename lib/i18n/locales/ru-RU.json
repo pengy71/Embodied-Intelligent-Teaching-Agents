@@ -898,6 +898,7 @@
     "speechFailed": "Ошибка генерации речи",
     "retryScene": "Повторить",
     "retryingScene": "Перегенерация...",
+    "back": "Назад",
     "backToHome": "На главную",
     "sessionNotFound": "Сессия не найдена",
     "sessionNotFoundDesc": "Пожалуйста, заполните требования к курсу, чтобы начать генерацию.",

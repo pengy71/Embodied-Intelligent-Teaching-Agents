@@ -1,14 +1,14 @@
 import { Pool, type QueryResult } from 'pg';
 
-import { defaultAccounts, defaultLearningEvents, defaultStudents, defaultTeachingCourse } from './seed';
+import {
+  defaultAccounts,
+  defaultLearningEvents,
+  defaultStudents,
+  defaultTeachingCourse,
+} from './seed';
 import { hashPassword } from '../auth/password';
 import { loadKnowledge } from './store';
-import {
-  buildGraphEdges,
-  getAllPoints,
-  getPointChapter,
-  getPointSection,
-} from './knowledge-doc';
+import { buildGraphEdges, getAllPoints, getPointChapter, getPointSection } from './knowledge-doc';
 import type {
   StageTest,
   StageTestConfig,
@@ -176,6 +176,49 @@ async function createSchema(): Promise<void> {
   await query(`DROP TABLE IF EXISTS teaching_knowledge_nodes`);
 }
 
+async function upsertLearningEvents(
+  courseId: string,
+  events: TeachingLearningEvent[],
+): Promise<void> {
+  const chunkSize = 200;
+  for (let start = 0; start < events.length; start += chunkSize) {
+    const chunk = events.slice(start, start + chunkSize);
+    const params: unknown[] = [];
+    const rows: string[] = [];
+    chunk.forEach((event, index) => {
+      const base = index * 9;
+      rows.push(
+        `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8}::jsonb, $${base + 9}::timestamptz)`,
+      );
+      params.push(
+        event.id,
+        courseId,
+        event.studentId,
+        event.eventType,
+        event.knowledgeNodeId,
+        event.score,
+        event.durationMinutes,
+        JSON.stringify(event.payload),
+        event.occurredAt,
+      );
+    });
+    await query(
+      `INSERT INTO teaching_learning_events (
+         id, course_id, student_id, event_type, knowledge_node_id,
+         score, duration_minutes, payload, occurred_at
+       ) VALUES ${rows.join(', ')}
+       ON CONFLICT (id) DO UPDATE SET
+         event_type = EXCLUDED.event_type,
+         knowledge_node_id = EXCLUDED.knowledge_node_id,
+         score = EXCLUDED.score,
+         duration_minutes = EXCLUDED.duration_minutes,
+         payload = EXCLUDED.payload,
+         occurred_at = EXCLUDED.occurred_at`,
+      params,
+    );
+  }
+}
+
 async function seedDefaults(): Promise<void> {
   await query(
     `
@@ -191,14 +234,13 @@ async function seedDefaults(): Promise<void> {
 
   // Clean up students/accounts no longer in the seed data (e.g. after
   // renumbering student ids). Cascades to learning_events and agent_runs.
-  await query(
-    `DELETE FROM teaching_students WHERE course_id = $1 AND id <> ALL($2::text[])`,
-    [defaultTeachingCourse.id, defaultStudents.map((s) => s.id)],
-  );
-  await query(
-    `DELETE FROM teaching_accounts WHERE id <> ALL($1::text[])`,
-    [defaultAccounts.map((a) => a.id)],
-  );
+  await query(`DELETE FROM teaching_students WHERE course_id = $1 AND id <> ALL($2::text[])`, [
+    defaultTeachingCourse.id,
+    defaultStudents.map((s) => s.id),
+  ]);
+  await query(`DELETE FROM teaching_accounts WHERE id <> ALL($1::text[])`, [
+    defaultAccounts.map((a) => a.id),
+  ]);
   for (const student of defaultStudents) {
     await query(
       `
@@ -222,35 +264,16 @@ async function seedDefaults(): Promise<void> {
     );
   }
 
-  for (const event of defaultLearningEvents) {
-    await query(
-      `
-        INSERT INTO teaching_learning_events (
-          id, course_id, student_id, event_type, knowledge_node_id,
-          score, duration_minutes, payload, occurred_at
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::timestamptz)
-        ON CONFLICT (id) DO UPDATE
-        SET event_type = EXCLUDED.event_type,
-            knowledge_node_id = EXCLUDED.knowledge_node_id,
-            score = EXCLUDED.score,
-            duration_minutes = EXCLUDED.duration_minutes,
-            payload = EXCLUDED.payload,
-            occurred_at = EXCLUDED.occurred_at
-      `,
-      [
-        event.id,
-        defaultTeachingCourse.id,
-        event.studentId,
-        event.eventType,
-        event.knowledgeNodeId,
-        event.score,
-        event.durationMinutes,
-        JSON.stringify(event.payload),
-        event.occurredAt,
-      ],
-    );
-  }
+  // Seed events live in the `seed-` id namespace so the whole set can be
+  // replaced on every re-seed without touching real usage events, which keep
+  // their own `ev-<timestamp>` ids. Legacy `ev-NNN` seed ids are cleaned up too.
+  await query(`DELETE FROM teaching_learning_events WHERE id ~ '^seed-' OR id ~ '^ev-[0-9]{3}$'`);
+  await upsertLearningEvents(defaultTeachingCourse.id, defaultLearningEvents);
+
+  // Invalidate cached agent-run snapshots (teacher analytics, student guidance,
+  // etc.) so dashboards recompute from the refreshed learning events instead of
+  // serving stale results generated before the re-seed.
+  await query(`DELETE FROM teaching_agent_runs WHERE course_id = $1`, [defaultTeachingCourse.id]);
 
   for (const account of defaultAccounts) {
     const passwordHash = await hashPassword(account.password);
@@ -266,7 +289,14 @@ async function seedDefaults(): Promise<void> {
             student_id = EXCLUDED.student_id,
             updated_at = now()
       `,
-      [account.id, account.username, passwordHash, account.role, account.displayName, account.studentId],
+      [
+        account.id,
+        account.username,
+        passwordHash,
+        account.role,
+        account.displayName,
+        account.studentId,
+      ],
     );
   }
 }
@@ -610,11 +640,7 @@ function rowToStageTest(r: Record<string, unknown>): StageTest {
     createdBy: String(r.created_by ?? ''),
     createdAt:
       r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at ?? ''),
-    dueAt: r.due_at
-      ? r.due_at instanceof Date
-        ? r.due_at.toISOString()
-        : String(r.due_at)
-      : null,
+    dueAt: r.due_at ? (r.due_at instanceof Date ? r.due_at.toISOString() : String(r.due_at)) : null,
   };
 }
 

@@ -102,6 +102,24 @@ export interface StudentGuidanceResult {
     overallComment: string;
   };
   adaptationEvents: Array<{ label: string; action: string; time: string }>;
+  portrait: StudentPortraitScore;
+}
+
+export interface PortraitDimension {
+  key: 'quiz' | 'qa' | 'practice' | 'duration' | 'wrong';
+  label: string;
+  score: number;
+  weight: number;
+  detail: string;
+}
+
+export interface StudentPortraitScore {
+  schemaVersion: number;
+  generatedAt: string;
+  studentId: string;
+  dimensions: PortraitDimension[];
+  portraitScore: number;
+  level: '优秀' | '良好' | '及格' | '预警';
 }
 
 export interface TeacherAnalyticsStudent {

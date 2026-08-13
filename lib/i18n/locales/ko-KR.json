@@ -898,6 +898,7 @@
     "speechFailed": "음성 생성에 실패했습니다",
     "retryScene": "다시 시도",
     "retryingScene": "재생성 중...",
+    "back": "뒤로",
     "backToHome": "홈으로 돌아가기",
     "sessionNotFound": "세션을 찾을 수 없습니다",
     "sessionNotFoundDesc": "생성 프로세스를 시작하려면 강좌 요구사항을 입력해주세요.",

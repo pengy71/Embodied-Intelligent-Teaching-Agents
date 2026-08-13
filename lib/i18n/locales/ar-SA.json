@@ -898,6 +898,7 @@
     "speechFailed": "فشل توليد الكلام",
     "retryScene": "إعادة المحاولة",
     "retryingScene": "جارٍ إعادة التوليد...",
+    "back": "رجوع",
     "backToHome": "العودة للرئيسية",
     "sessionNotFound": "الجلسة غير موجودة",
     "sessionNotFoundDesc": "يرجى ملء متطلبات المقرر لبدء عملية التوليد.",

@@ -898,6 +898,7 @@
     "speechFailed": "Falló la generación de voz",
     "retryScene": "Reintentar",
     "retryingScene": "Regenerando...",
+    "back": "Atrás",
     "backToHome": "Volver al inicio",
     "sessionNotFound": "Sesión no encontrada",
     "sessionNotFoundDesc": "Completa los requisitos del curso para iniciar el proceso de generación.",

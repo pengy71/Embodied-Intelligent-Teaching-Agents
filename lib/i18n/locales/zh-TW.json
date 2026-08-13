@@ -883,6 +883,7 @@
     "speechFailed": "語音合成失敗",
     "retryScene": "重試生成",
     "retryingScene": "正在重新生成...",
+    "back": "返回",
     "backToHome": "返回首頁",
     "sessionNotFound": "未找到生成會話",
     "sessionNotFoundDesc": "請先填寫課程需求開始生成流程。",

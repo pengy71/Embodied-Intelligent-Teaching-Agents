@@ -203,3 +203,40 @@ export function useWeakPoints(): UseWeakPointsResult {
 
   return { weakPoints, isLoading, error, refresh };
 }
+
+
+export interface UseWrongQuestionsResult {
+  wrongQuestions: GradedQuestion[];
+  isLoading: boolean;
+  error: Error | null;
+  refresh: () => Promise<void>;
+}
+
+export function useWrongQuestions(): UseWrongQuestionsResult {
+  const [wrongQuestions, setWrongQuestions] = useState<GradedQuestion[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  const refresh = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/teaching/practice/wrong-questions', { cache: 'no-store' });
+      if (!res.ok) throw new Error('加载错题集失败 (' + res.status + ')');
+      const json = await res.json();
+      setWrongQuestions(
+        Array.isArray(json.wrongQuestions) ? (json.wrongQuestions as GradedQuestion[]) : [],
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e : new Error(String(e)));
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  return { wrongQuestions, isLoading, error, refresh };
+}

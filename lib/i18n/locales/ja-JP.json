@@ -898,6 +898,7 @@
     "speechFailed": "音声の生成に失敗しました",
     "retryScene": "やり直す",
     "retryingScene": "再生成中...",
+    "back": "戻る",
     "backToHome": "ホームに戻る",
     "sessionNotFound": "セッションが見つかりません",
     "sessionNotFoundDesc": "コースの要件を入力して生成プロセスを開始してください。",

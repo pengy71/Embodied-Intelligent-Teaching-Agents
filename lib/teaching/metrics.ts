@@ -6,6 +6,8 @@ import {
   getStudents,
 } from './db';
 import type {
+  PortraitDimension,
+  StudentPortraitScore,
   TeacherAnalyticsStudent,
   TeachingKnowledgeNode,
   TeachingLearningEvent,
@@ -356,5 +358,91 @@ export async function buildTeacherSnapshot(courseId: string) {
       .sort((a, b) => b.value - a.value)
       .slice(0, 6),
     warningStudents,
+  };
+}
+
+export async function buildStudentPortraitScore(
+  courseId: string,
+  studentId: string,
+): Promise<StudentPortraitScore> {
+  const snapshot = await buildStudentSnapshot(courseId, studentId);
+  const { events, mastery, stats } = snapshot;
+
+  const quizEvents = events.filter((event) => event.eventType === 'quiz');
+  const quizScores = eventScores(quizEvents);
+  const quizAvg = quizScores.length ? average(quizScores) : 0;
+  const quizEngagement = Math.min(quizEvents.length / 5, 1);
+  const quizDim = clampPercent(quizAvg * (0.6 + 0.4 * quizEngagement));
+
+  const qaCount = events.filter((event) => event.eventType === 'qa').length;
+  const qaDim = clampPercent(Math.min(qaCount * 10, 100));
+
+  const practiceEvents = events.filter((event) => event.eventType === 'practice');
+  const practiceScores = eventScores(practiceEvents);
+  const practiceAvg = practiceScores.length ? average(practiceScores) : 0;
+  const practiceDim = clampPercent(practiceAvg);
+
+  const totalMinutes = events.reduce((sum, event) => sum + event.durationMinutes, 0);
+  const durationDim = clampPercent(
+    Math.min(totalMinutes / 600, 1) * 80 + Math.min(stats.currentStreak / 7, 1) * 20,
+  );
+
+  const weakCount = Object.values(mastery).filter((value) => value < 60).length;
+  const wrongEvents = events.filter(
+    (event) => typeof event.score === 'number' && event.score < 60,
+  ).length;
+  const wrongDim = clampPercent(100 - weakCount * 8 - wrongEvents * 3);
+
+  const dimensions: PortraitDimension[] = [
+    {
+      key: 'quiz',
+      label: '自测掌握',
+      score: quizDim,
+      weight: 0.25,
+      detail: `${quizEvents.length} 次自测，平均 ${Math.round(quizAvg)} 分`,
+    },
+    {
+      key: 'qa',
+      label: '问答活跃',
+      score: qaDim,
+      weight: 0.15,
+      detail: `累计 ${qaCount} 次提问`,
+    },
+    {
+      key: 'practice',
+      label: '习题正确率',
+      score: practiceDim,
+      weight: 0.25,
+      detail: `${practiceEvents.length} 次练习${practiceScores.length ? `，平均 ${Math.round(practiceAvg)} 分` : ''}`,
+    },
+    {
+      key: 'duration',
+      label: '学习投入',
+      score: durationDim,
+      weight: 0.15,
+      detail: `累计 ${stats.totalHours} 小时，连续 ${stats.currentStreak} 天`,
+    },
+    {
+      key: 'wrong',
+      label: '错题控制',
+      score: wrongDim,
+      weight: 0.2,
+      detail: `${weakCount} 个薄弱知识点，${wrongEvents} 次低分记录`,
+    },
+  ];
+
+  const portraitScore = clampPercent(
+    dimensions.reduce((sum, dim) => sum + dim.score * dim.weight, 0),
+  );
+  const level =
+    portraitScore >= 85 ? '优秀' : portraitScore >= 70 ? '良好' : portraitScore >= 50 ? '及格' : '预警';
+
+  return {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    studentId,
+    dimensions,
+    portraitScore,
+    level,
   };
 }

@@ -689,6 +689,7 @@ async function recordPracticeEvents(
           passed: g.passed,
           cause: g.attribution?.cause ?? null,
           ...(testId ? { testId } : {}),
+          ...(g.passed ? {} : { gradedQuestion: g }),
         },
       });
     } catch (err) {
@@ -1026,4 +1027,31 @@ export async function getStudentWeakPoints(
     });
   }
   return result.slice(0, 10);
+}
+
+
+// ---------------------------------------------------------------------------
+// 学生错题集（持久化）：从 learning events 中还原历次练习/测试的错题
+// ---------------------------------------------------------------------------
+
+export async function getStudentWrongQuestions(
+  courseId: string,
+  studentId: string,
+): Promise<GradedQuestion[]> {
+  let events: TeachingLearningEvent[] = [];
+  try {
+    events = await getLearningEvents(courseId, studentId);
+  } catch {
+    return [];
+  }
+  const wrong: GradedQuestion[] = [];
+  for (const e of events) {
+    if (e.eventType !== 'practice' && e.eventType !== 'quiz') continue;
+    if (e.payload?.passed !== false) continue;
+    const g = e.payload?.gradedQuestion;
+    if (!g || typeof g !== 'object') continue;
+    wrong.push(g as GradedQuestion);
+  }
+  // learning events 按发生时间升序返回，错题集按最近优先展示
+  return wrong.reverse().slice(0, 200);
 }

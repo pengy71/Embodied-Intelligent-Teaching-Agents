@@ -898,6 +898,7 @@
     "speechFailed": "Speech generation failed",
     "retryScene": "Retry",
     "retryingScene": "Regenerating...",
+    "back": "Back",
     "backToHome": "Back to Home",
     "sessionNotFound": "Session Not Found",
     "sessionNotFoundDesc": "Please fill in course requirements to start the generation process.",

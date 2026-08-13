@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useQA } from "@/lib/teaching/use-qa";
-import { AgentLoopPanel } from "@/components/teaching/agent-loop-panel";
+import { ChapterContent } from "@/components/teaching/knowledge/chapter-content";
 import { useQAHistory } from "@/lib/teaching/use-qa-history";
 import { trackLearningEvent } from "@/lib/teaching/track-event";
 import {
@@ -139,7 +139,7 @@ export default function StudentQAPage() {
         {/* Chat Area */}
         <div className="lg:col-span-3">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-3 mb-4">
+            <TabsList className="grid w-full grid-cols-2 mb-4">
               <TabsTrigger value="chat">
                 <Bot className="mr-2 h-4 w-4" />
                 智能问答
@@ -147,10 +147,6 @@ export default function StudentQAPage() {
               <TabsTrigger value="history">
                 <History className="mr-2 h-4 w-4" />
                 历史问答
-              </TabsTrigger>
-            <TabsTrigger value="loop">
-                <Sparkles className="mr-2 h-4 w-4" />
-                协同闭环
               </TabsTrigger>
             </TabsList>
             <TabsContent value="chat">
@@ -192,7 +188,11 @@ export default function StudentQAPage() {
                             : "bg-muted"
                         }`}
                       >
-                        <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                        {msg.role === "assistant" ? (
+                          <ChapterContent content={msg.content} className="text-sm" />
+                        ) : (
+                          <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                        )}
                         
                         {/* 教材溯源 */}
                         {msg.sources && msg.sources.length > 0 && (
@@ -355,7 +355,7 @@ export default function StudentQAPage() {
                             {expandedHistoryId === record.id && (
                               <div className="mt-3 space-y-3">
                                 <div className="rounded-md bg-muted p-3">
-                                  <p className="text-sm whitespace-pre-wrap">{record.answer}</p>
+                                  <ChapterContent content={record.answer} className="text-sm" />
                                 </div>
                                 {record.sources.length > 0 && (
                                   <div>
@@ -402,9 +402,6 @@ export default function StudentQAPage() {
                   </div>
                 </CardContent>
               </Card>
-            </TabsContent>
-          <TabsContent value="loop">
-              <AgentLoopPanel defaultQuestion={input} />
             </TabsContent>
           </Tabs>
         </div>

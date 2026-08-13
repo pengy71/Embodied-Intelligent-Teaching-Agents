@@ -5,9 +5,10 @@ import { callLLM } from '@/lib/ai/llm';
 import { resolveModel } from '@/lib/server/resolve-model';
 
 import { getLatestTeachingAgentRun, saveTeachingAgentRun } from './db';
-import { buildStudentSnapshot, buildTeacherSnapshot } from './metrics';
+import { buildStudentPortraitScore, buildStudentSnapshot, buildTeacherSnapshot } from './metrics';
 import type {
   StudentGuidanceResult,
+  StudentPortraitScore,
   TeacherAnalyticsResult,
   TeachingAgentType,
 } from './types';
@@ -43,11 +44,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-const STUDENT_GUIDANCE_SCHEMA_VERSION = 3;
+const STUDENT_GUIDANCE_SCHEMA_VERSION = 4;
 const TEACHER_ANALYTICS_SCHEMA_VERSION = 3;
 
 function isStudentGuidanceCache(value: unknown): value is StudentGuidanceResult {
-  return isRecord(value) && value.schemaVersion === STUDENT_GUIDANCE_SCHEMA_VERSION;
+  return (
+    isRecord(value) &&
+    value.schemaVersion === STUDENT_GUIDANCE_SCHEMA_VERSION &&
+    isRecord(value.portrait)
+  );
 }
 
 function isTeacherAnalyticsCache(value: unknown): value is TeacherAnalyticsResult {
@@ -79,6 +84,18 @@ async function saveRun(params: {
   });
 }
 
+export async function getStoredStudentGuidance(params: {
+  courseId: string;
+  studentId: string;
+}): Promise<StudentGuidanceResult | null> {
+  const cached = await getLatestTeachingAgentRun<unknown>({
+    courseId: params.courseId,
+    studentId: params.studentId,
+    agentType: 'student-guidance',
+  });
+  return isStudentGuidanceCache(cached) ? cached : null;
+}
+
 export async function runStudentGuidanceAgent(params: {
   courseId: string;
   studentId: string;
@@ -96,6 +113,7 @@ export async function runStudentGuidanceAgent(params: {
   }
 
   const snapshot = await buildStudentSnapshot(params.courseId, params.studentId);
+  const portrait = await buildStudentPortraitScore(params.courseId, params.studentId);
   const {
     model,
     modelString,
@@ -119,6 +137,7 @@ export async function runStudentGuidanceAgent(params: {
     })),
     path: snapshot.path,
     recentEvents: snapshot.events.slice(-10),
+    portrait,
   };
 
   const system = `你是“个性导学 agent”。你必须基于学习画像、知识图谱和学习事件，为学生生成个性化学习路径。
@@ -223,6 +242,7 @@ ${JSON.stringify(promptInput, null, 2)}
         time: '最近',
       },
     ]),
+    portrait,
   };
 
   await saveRun({
@@ -234,6 +254,16 @@ ${JSON.stringify(promptInput, null, 2)}
     result: guidance,
   });
   return guidance;
+}
+
+export async function getStoredTeacherAnalytics(params: {
+  courseId: string;
+}): Promise<TeacherAnalyticsResult | null> {
+  const cached = await getLatestTeachingAgentRun<unknown>({
+    courseId: params.courseId,
+    agentType: 'teacher-analytics',
+  });
+  return isTeacherAnalyticsCache(cached) ? cached : null;
 }
 
 export async function runTeacherAnalyticsAgent(params: {

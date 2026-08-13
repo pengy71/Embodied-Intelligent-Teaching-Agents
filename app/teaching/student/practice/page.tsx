@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import {
   usePractice,
   useWeakPoints,
+  useWrongQuestions,
   type PracticeQuestion,
   type PracticeMode,
   type GradedQuestion,
@@ -22,6 +23,7 @@ import { useKnowledge } from "@/lib/teaching/use-knowledge";
 import { useStudentStageTests } from "@/lib/teaching/use-stage-tests";
 import type { StageTest } from "@/lib/teaching/types";
 import {
+  ArrowLeft,
   Sparkles,
   CheckCircle2,
   RefreshCw,
@@ -116,6 +118,7 @@ export default function StudentPracticePage() {
     usePractice();
   const knowledge = useKnowledge();
   const weak = useWeakPoints();
+  const wrongQuestions = useWrongQuestions();
   const stageTests = useStudentStageTests();
 
   const chapters = knowledge.doc?.chapters ?? [];
@@ -160,6 +163,14 @@ export default function StudentPracticePage() {
     void stageTests.refresh();
   };
 
+  const backToSetup = () => {
+    setQuestions([]);
+    setAnswers([]);
+    setRound(null);
+    setSessionMode(null);
+    setActiveTest(null);
+  };
+
   const handleAnswer = (qid: string, value: number | string) => {
     if (round) return;
     setAnswers((prev) => ({ ...prev, [qid]: value }));
@@ -175,6 +186,7 @@ export default function StudentPracticePage() {
     );
     if (result) {
       setRound(result);
+      void wrongQuestions.refresh();
       if (isTest) void stageTests.refresh();
     }
   };
@@ -216,7 +228,7 @@ export default function StudentPracticePage() {
     const a = answers[q.id];
     return a !== undefined && a !== null && a !== "";
   }).length;
-  const wrongGraded = round ? round.gradedQuestions.filter((g) => !g.passed) : [];
+  const wrongGraded = wrongQuestions.wrongQuestions;
 
   const renderSetup = (tab: string) => {
     const mode = TAB_MODE[tab] ?? "adaptive";
@@ -397,10 +409,16 @@ export default function StudentPracticePage() {
             {isTest ? (
               <Button variant="outline" size="sm" onClick={clearTestSession}>返回列表</Button>
             ) : (
-              <Button variant="outline" size="sm" onClick={() => handleGenerate(tab)} disabled={isGenerating}>
-                {isGenerating ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="mr-1.5 h-3.5 w-3.5" />}
-                重新生成
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={backToSetup}>
+                  <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
+                  返回
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => handleGenerate(tab)} disabled={isGenerating}>
+                  {isGenerating ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="mr-1.5 h-3.5 w-3.5" />}
+                  重新生成
+                </Button>
+              </div>
             )}
           </div>
         </CardHeader>
@@ -615,7 +633,13 @@ export default function StudentPracticePage() {
               {isTest ? (
                 <Button variant="outline" onClick={clearTestSession}>返回测试列表</Button>
               ) : (
-                <Button variant="outline" onClick={resetRound}>再做一次</Button>
+                <>
+                  <Button variant="outline" onClick={backToSetup}>
+                    <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
+                    返回
+                  </Button>
+                  <Button variant="outline" onClick={resetRound}>再做一次</Button>
+                </>
               )}
               <Button onClick={handleRegenerate} disabled={isGenerating}>
                 {isGenerating ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="mr-1.5 h-3.5 w-3.5" />}
@@ -664,10 +688,14 @@ export default function StudentPracticePage() {
                 <AlertCircle className="h-4 w-4 text-destructive" />
                 错题集
               </CardTitle>
-              <CardDescription>最近一轮练习的错题及归因，可针对性生成变式题强化</CardDescription>
+              <CardDescription>历次练习与测试中做错的题目及归因，可针对性生成变式题强化</CardDescription>
             </CardHeader>
             <CardContent>
-              {wrongGraded.length === 0 ? (
+              {wrongQuestions.isLoading ? (
+                <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />加载错题集…
+                </div>
+              ) : wrongGraded.length === 0 ? (
                 <div className="flex h-40 items-center justify-center rounded-lg border-2 border-dashed text-sm text-muted-foreground">
                   {round ? "本轮无错题，继续保持！" : "暂无错题，去练习中作答并提交后会自动汇总到这里"}
                 </div>

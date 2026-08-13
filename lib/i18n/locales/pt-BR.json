@@ -898,6 +898,7 @@
     "speechFailed": "Falha ao gerar a fala",
     "retryScene": "Tentar novamente",
     "retryingScene": "Regerando...",
+    "back": "Voltar",
     "backToHome": "Voltar ao Início",
     "sessionNotFound": "Sessão Não Encontrada",
     "sessionNotFoundDesc": "Preencha os objetivos do curso para iniciar a geração.",
