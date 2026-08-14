@@ -96,3 +96,6 @@ e2e/__screenshots-619/
 /embodied-teaching-report_*/
 # MS Office temp lock files
 ~$*
+
+# Codex local config (do not commit)
+.codex/
