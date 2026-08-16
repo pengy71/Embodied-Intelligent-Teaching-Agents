@@ -30,7 +30,8 @@ export function getPool(): Pool {
     if (!connectionString) {
       throw new Error('DATABASE_URL is not configured');
     }
-    pool = new Pool({ connectionString });
+    // PgBouncer 事务模式：禁用 prepared statement，避免偶发 "prepared statement S_x does not exist"。
+    pool = new Pool({ connectionString, prepare: false });
   }
   return pool;
 }

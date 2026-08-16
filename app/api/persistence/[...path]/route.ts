@@ -187,7 +187,8 @@ export async function handlePersistenceRequest(
   }
 
   try {
-    const poolFactory = deps.poolFactory ?? ((value) => new Pool({ connectionString: value }));
+    const poolFactory =
+      deps.poolFactory ?? ((value) => new Pool({ connectionString: value, prepare: false }));
     return await runNodeHandler(
       await getPersistenceHandler(connectionString, poolFactory),
       request,

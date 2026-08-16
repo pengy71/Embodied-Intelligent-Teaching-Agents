@@ -37,7 +37,11 @@ export function getTeachingPool(): Pool {
     throw new Error('DATABASE_URL is required for teaching agents');
   }
   if (!globalState[POOL_KEY]) {
-    globalState[POOL_KEY] = new Pool({ connectionString, max: 10 });
+    // Supabase 通过 PgBouncer 事务模式连接池（端口 6543）暴露 DATABASE_URL。
+    // 该模式下同一逻辑连接的不同语句可能路由到不同后端，node-postgres 默认
+    // 使用的命名 prepared statement 会偶发报 "prepared statement S_x does not exist"。
+    // 关闭 prepare 让每条语句以简单协议发送，是 Supabase 官方推荐的稳定用法。
+    globalState[POOL_KEY] = new Pool({ connectionString, max: 10, prepare: false });
   }
   return globalState[POOL_KEY];
 }
