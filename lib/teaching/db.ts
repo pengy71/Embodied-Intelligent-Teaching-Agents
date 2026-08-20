@@ -9,6 +9,7 @@ import {
 import { hashPassword } from '../auth/password';
 import { loadKnowledge } from './store';
 import { buildGraphEdges, getAllPoints, getPointChapter, getPointSection } from './knowledge-doc';
+import { normalizeStudentAssistantPreferences, type StudentAssistantPreferences } from './student-assistant';
 import type {
   StageTest,
   StageTestConfig,
@@ -252,7 +253,6 @@ async function seedDefaults(): Promise<void> {
         VALUES ($1, $2, $3, $4::jsonb)
         ON CONFLICT (id) DO UPDATE
         SET name = EXCLUDED.name,
-            profile = EXCLUDED.profile,
             updated_at = now()
       `,
       [
@@ -462,6 +462,45 @@ export async function getStudentProfile(
   const student = students.find((item) => item.id === studentId);
   if (!student) throw new Error(`Student ${studentId} not found in course ${courseId}`);
   return student;
+}
+export async function getStudentAssistantPreferences(
+  courseId: string,
+  studentId: string,
+): Promise<StudentAssistantPreferences | null> {
+  await ensureTeachingDatabase();
+  const result = await query(
+    `SELECT profile FROM teaching_students WHERE course_id = $1 AND id = $2`,
+    [courseId, studentId],
+  );
+  const profile = result.rows[0]?.profile;
+  const stored =
+    profile && typeof profile === 'object'
+      ? (profile as Record<string, unknown>).assistantPreferences
+      : undefined;
+  return stored === undefined ? null : normalizeStudentAssistantPreferences(stored);
+}
+
+export async function saveStudentAssistantPreferences(
+  courseId: string,
+  studentId: string,
+  preferences: StudentAssistantPreferences,
+): Promise<void> {
+  await ensureTeachingDatabase();
+  const result = await query(
+    `SELECT profile FROM teaching_students WHERE course_id = $1 AND id = $2`,
+    [courseId, studentId],
+  );
+  if (result.rows.length === 0) return;
+  const profile =
+    result.rows[0]?.profile && typeof result.rows[0].profile === 'object'
+      ? (result.rows[0].profile as Record<string, unknown>)
+      : {};
+  await query(
+    `UPDATE teaching_students
+       SET profile = $3::jsonb, updated_at = now()
+     WHERE course_id = $1 AND id = $2`,
+    [courseId, studentId, JSON.stringify({ ...profile, assistantPreferences: preferences })],
+  );
 }
 
 export async function getLearningEvents(

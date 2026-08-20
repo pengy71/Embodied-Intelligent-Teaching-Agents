@@ -4,7 +4,8 @@ import { nanoid } from 'nanoid';
 import { callLLM } from '@/lib/ai/llm';
 import { resolveModel } from '@/lib/server/resolve-model';
 
-import { getLatestTeachingAgentRun, saveTeachingAgentRun } from './db';
+import { getStudentAssistantPreferences, getLatestTeachingAgentRun, saveTeachingAgentRun } from './db';
+import { buildTeachingStyleProfile, defaultStudentAssistantPreferences } from './student-assistant';
 import { buildStudentPortraitScore, buildStudentSnapshot, buildTeacherSnapshot } from './metrics';
 import type {
   StudentGuidanceResult,
@@ -114,6 +115,10 @@ export async function runStudentGuidanceAgent(params: {
 
   const snapshot = await buildStudentSnapshot(params.courseId, params.studentId);
   const portrait = await buildStudentPortraitScore(params.courseId, params.studentId);
+  const preferences =
+    (await getStudentAssistantPreferences(params.courseId, params.studentId)) ??
+    defaultStudentAssistantPreferences;
+  const teachingStyleProfile = buildTeachingStyleProfile(preferences);
   const {
     model,
     modelString,
@@ -138,9 +143,12 @@ export async function runStudentGuidanceAgent(params: {
     path: snapshot.path,
     recentEvents: snapshot.events.slice(-10),
     portrait,
+    preferences,
+    teachingStyleProfile,
   };
 
-  const system = `你是“个性导学 agent”。你必须基于学习画像、知识图谱和学习事件，为学生生成个性化学习路径。
+  const system = `你是“个性导学 agent”。你必须基于学习画像、知识图谱、学习事件以及学生设定的教学风格偏好，为学生生成个性化学习路径。
+必须严格遵循输入中的 teachingStyleProfile 来选择措辞、节奏、深度与讲解方式。
 只输出 JSON，不要 markdown，不要解释。
 要求：
 - 必须体现因人而异的学习顺序、复习计划和练习建议。
@@ -352,9 +360,9 @@ ${JSON.stringify(promptInput, null, 2)}
       },
     ]),
     exportCards: [
-      { title: '完整成绩单', desc: '包含学习进度、掌握率、测试成绩等全部数据' },
-      { title: '阶段测试报告', desc: '本次阶段测试的详细成绩与错题分析' },
-      { title: '学习行为统计', desc: '学习时长、问答记录、练习完成情况' },
+      { type: 'grade-sheet', title: '完整成绩单', desc: '包含学习进度、掌握率、测试成绩等全部数据' },
+      { type: 'test-report', title: '阶段测试报告', desc: '本次阶段测试的详细成绩与错题分析' },
+      { type: 'behavior-stats', title: '学习行为统计', desc: '学习时长、问答记录、练习完成情况' },
     ],
   };
 

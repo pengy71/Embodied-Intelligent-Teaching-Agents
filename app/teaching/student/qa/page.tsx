@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useQA } from "@/lib/teaching/use-qa";
 import { ChapterContent } from "@/components/teaching/knowledge/chapter-content";
 import { useQAHistory } from "@/lib/teaching/use-qa-history";
+import { getDepthLabel, normalizeStudentAssistantPreferences } from "@/lib/teaching/student-assistant";
 import { trackLearningEvent } from "@/lib/teaching/track-event";
 import {
   Send,
@@ -50,6 +51,13 @@ interface Message {
   time: string;
 }
 
+const TEMPLATE_TO_QA_STYLE: Record<string, string> = {
+  academic: "严谨型",
+  inspiring: "引导启发型",
+  accessible: "通俗易懂型",
+  practical: "实践应用型",
+};
+
 export default function StudentQAPage() {
   const [activeTab, setActiveTab] = useState("chat");
   const [input, setInput] = useState("");
@@ -67,6 +75,23 @@ export default function StudentQAPage() {
   const { isLoading, error, askQuestion } = useQA();
   const { records: historyRecords, total: historyTotal, isLoading: historyLoading, fetchHistory } = useQAHistory();
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
+
+  // 初始化答疑风格为该学生已保存的个性化偏好（AI学习助手-个性化调整）
+  useEffect(() => {
+    void (async () => {
+      try {
+        const response = await fetch("/api/teaching/student-preferences", { method: "GET" });
+        const data = await response.json();
+        if (response.ok && data.success && data.preferences) {
+          const saved = normalizeStudentAssistantPreferences(data.preferences);
+          setTeachingStyle(TEMPLATE_TO_QA_STYLE[saved.templateId] ?? "引导启发型");
+          setDepth(getDepthLabel(saved.depth));
+        }
+      } catch {
+        // 服务端不可用或未登录时保留默认值
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });

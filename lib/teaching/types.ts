@@ -122,6 +122,8 @@ export interface StudentPortraitScore {
   level: '优秀' | '良好' | '及格' | '预警';
 }
 
+export type TeacherExportType = 'grade-sheet' | 'test-report' | 'behavior-stats';
+
 export interface TeacherAnalyticsStudent {
   id: string;
   name: string;
@@ -172,7 +174,7 @@ export interface TeacherAnalyticsResult {
   errorDistribution: Array<{ name: string; value: number }>;
   warningStudents: TeacherAnalyticsStudent[];
   suggestions: Array<{ tag: string; title: string; body: string }>;
-  exportCards: Array<{ title: string; desc: string }>;
+  exportCards: Array<{ type: TeacherExportType; title: string; desc: string }>;
 }
 
 // === RAG 答疑相关类型 ===

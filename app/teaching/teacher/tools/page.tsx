@@ -31,7 +31,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useTeacherStageTests } from "@/lib/teaching/use-stage-tests";
 import { useKnowledge } from "@/lib/teaching/use-knowledge";
-import type { StageTestDifficulty } from "@/lib/teaching/types";
+import type { StageTestDifficulty, TeacherExportType } from "@/lib/teaching/types";
+import { toast } from "sonner";
+import { exportBehaviorStats, exportGradeSheet, exportTestReport } from "@/lib/teaching/export";
 
 const RADAR_LABELS = ["环境感知", "世界模型", "任务规划", "Motion Planning", "Manipulation", "强化学习", "多智能体"];
 const WEEK_LABELS = ["第1周", "第2周", "第3周", "第4周"];
@@ -150,6 +152,30 @@ export default function TeacherToolsPage() {
   const warningStudents = analytics?.warningStudents ?? [];
   const suggestions = analytics?.suggestions ?? [];
   const exportCards = analytics?.exportCards ?? [];
+
+  const handleExport = (type: TeacherExportType | undefined, index: number) => {
+    if (!analytics) {
+      toast.error("学情数据尚未生成，请先点击右上角“重新生成”");
+      return;
+    }
+    const resolvedType: TeacherExportType =
+      type ?? (["grade-sheet", "test-report", "behavior-stats"] as const)[index % 3];
+    switch (resolvedType) {
+      case "grade-sheet":
+        exportGradeSheet(analytics);
+        break;
+      case "test-report":
+        exportTestReport(analytics);
+        break;
+      case "behavior-stats":
+        exportBehaviorStats(analytics);
+        break;
+      default:
+        toast.error("未知的导出类型");
+        return;
+    }
+    toast.success("导出成功，已开始下载");
+  };
   const generatedAt = analytics ? new Date(analytics.generatedAt).toLocaleString("zh-CN") : "等待生成";
   const modelString = analytics?.modelString ?? "未加载";
 
@@ -811,7 +837,12 @@ export default function TeacherToolsPage() {
                       </div>
                       <h4 className="mb-1 text-sm font-semibold">{item.title}</h4>
                       <p className="mb-3 text-xs text-muted-foreground">{item.desc}</p>
-                      <Button variant="outline" size="sm" className="w-full">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => handleExport(item.type, index)}
+                      >
                         <Download className="mr-1.5 h-3.5 w-3.5" />
                         导出
                       </Button>

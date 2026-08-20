@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +21,6 @@ import {
   FileText,
   Plus,
   Loader2,
-  CheckCircle2,
   RefreshCw,
   Trash2,
 } from "lucide-react";
@@ -423,13 +421,13 @@ export default function TeacherCoursePage() {
                     <Upload className="h-5 w-5 text-primary" />
                     教学资源管理
                   </CardTitle>
-                  <CardDescription>上传教材、PPT 等，AI 自动解析并构建知识索引</CardDescription>
+                  <CardDescription>上传 PDF / TXT / Markdown 教材文档，AI 自动解析并构建知识索引</CardDescription>
                 </div>
                 <label className="inline-flex cursor-pointer">
                   <input
                     type="file"
                     className="hidden"
-                    accept=".pdf,.ppt,.pptx,.docx,.txt"
+                    accept=".pdf,.txt,.md,.markdown"
                     onChange={(e) => {
                       const f = e.target.files?.[0];
                       if (f) void handleUpload(f);

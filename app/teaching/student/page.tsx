@@ -75,6 +75,7 @@ export default function StudentAssistantPage() {
     () => new Set(personalStats.todayPlan.filter((task) => task.done).map((task) => String(task.id))),
   );
   const [lastUpdated, setLastUpdated] = useState("加载中");
+  const [isSavingPreferences, setIsSavingPreferences] = useState(false);
 
   const stats = guidance?.stats ?? {
     studyDays: personalStats.studyDays,
@@ -160,6 +161,23 @@ export default function StudentAssistantPage() {
     void loadStoredGuidance();
   }, []);
 
+  // 从服务端读取该学生已保存的个性化偏好（服务端为准，失败时保留本地缓存）
+  const loadServerPreferences = async () => {
+    try {
+      const response = await fetch("/api/teaching/student-preferences", { method: "GET" });
+      const data = await response.json();
+      if (response.ok && data.success && data.preferences) {
+        setPreferences(normalizeStudentAssistantPreferences(data.preferences));
+      }
+    } catch {
+      // 服务端不可用或未登录时保留 localStorage 缓存
+    }
+  };
+
+  useEffect(() => {
+    void loadServerPreferences();
+  }, []);
+
   const updatePreference = <K extends keyof StudentAssistantPreferences>(key: K, value: StudentAssistantPreferences[K]) => {
     setPreferences((current) => ({ ...current, [key]: value }));
   };
@@ -178,12 +196,30 @@ export default function StudentAssistantPage() {
     void regenerateGuidance();
   };
 
-  const savePreferences = () => {
+  const savePreferences = async () => {
+    setIsSavingPreferences(true);
     try {
-      window.localStorage.setItem(STUDENT_ASSISTANT_STORAGE_KEY, JSON.stringify(preferences));
-      toast.success("个性化设置已保存");
-    } catch {
-      toast.error("设置保存失败，请检查浏览器存储权限");
+      const response = await fetch("/api/teaching/student-preferences", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ preferences }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "保存失败");
+      }
+      // 服务端保存成功后同步本地缓存
+      window.localStorage.setItem(STUDENT_ASSISTANT_STORAGE_KEY, JSON.stringify(data.preferences));
+      toast.success("个性化设置已保存，正在按新风格重新生成导学建议");
+      // 立即让 AI 以新风格重新生成导学结果
+      if (guidance) {
+        await regenerateGuidance();
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "设置保存失败，请检查浏览器存储权限";
+      toast.error(message);
+    } finally {
+      setIsSavingPreferences(false);
     }
   };
 
@@ -998,9 +1034,9 @@ export default function StudentAssistantPage() {
                     onCheckedChange={(checked) => updatePreference("autoAdapt", checked)}
                   />
                 </div>
-                <Button className="w-full" onClick={savePreferences}>
-                  <Save className="mr-1.5 h-4 w-4" />
-                  保存设置
+                <Button className="w-full" onClick={() => void savePreferences()} disabled={isSavingPreferences}>
+                  <Save className={`mr-1.5 h-4 w-4 ${isSavingPreferences ? "animate-spin" : ""}`} />
+                  {isSavingPreferences ? "保存中" : "保存设置"}
                 </Button>
               </CardContent>
             </Card>

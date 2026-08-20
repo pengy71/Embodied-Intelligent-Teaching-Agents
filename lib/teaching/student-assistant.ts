@@ -91,3 +91,59 @@ export function getDepthLabel(value: number) {
   if (value < 66) return '标准';
   return '深入';
 }
+
+const TEMPLATE_STYLES: Record<string, string> = {
+  academic: '学术严谨型：注重理论推导、强调专业术语、精炼讲解',
+  inspiring: '引导启发型：问题驱动教学、引导逐步推理、培养独立分析能力',
+  accessible: '通俗易懂型：大量生活化案例、比喻类比、分步骤讲解',
+  practical: '实践应用型：强调实验与案例、结合机器人应用、提供代码示例',
+};
+
+const INTERACTION_LABELS: Record<StudentAssistantPreferences['interactionStyle'], string> = {
+  direct: '直接讲解',
+  guided: '提问引导',
+  socratic: '启发思考',
+};
+
+const RESOURCE_PRIORITY_LABELS: Record<StudentAssistantPreferences['resourcePriority'], string> = {
+  balanced: '均衡呈现',
+  visual: '图示优先',
+  paper: '论文优先',
+  practice: '实验优先',
+};
+
+/** 根据模板 id 返回可读的教学风格描述。 */
+export function getTeachingStyleLabel(templateId: string): string {
+  return TEMPLATE_STYLES[templateId] ?? TEMPLATE_STYLES.inspiring;
+}
+
+/** 生成注入到 AI prompt 的多行教学风格画像。 */
+export function buildTeachingStyleProfile(preferences: StudentAssistantPreferences): string {
+  const formatLabels: string[] = [];
+  if (preferences.formats.analogy) formatLabels.push('案例类比');
+  if (preferences.formats.diagram) formatLabels.push('图示说明');
+  if (preferences.formats.code) formatLabels.push('代码示例');
+  if (preferences.formats.citation) formatLabels.push('论文引用');
+  const formatText = formatLabels.length > 0 ? formatLabels.join('、') : '无特定形式偏好';
+
+  return [
+    `教学模板：${getTeachingStyleLabel(preferences.templateId)}`,
+    `教学节奏：${getPaceLabel(preferences.pace)}`,
+    `内容深度：${getDepthLabel(preferences.depth)}`,
+    `互动方式：${INTERACTION_LABELS[preferences.interactionStyle]}`,
+    `资源呈现：${RESOURCE_PRIORITY_LABELS[preferences.resourcePriority]}`,
+    `内容形式：${formatText}`,
+    `自动适应：${preferences.autoAdapt ? '开启（可根据学习行为微调）' : '关闭（严格遵循上述偏好）'}`,
+  ].join('\n');
+}
+
+/** 将学生偏好映射为答疑智能体使用的教学风格与深度。 */
+export function preferencesToQAProfile(preferences: StudentAssistantPreferences): {
+  teachingStyle: string;
+  depth: string;
+} {
+  return {
+    teachingStyle: getTeachingStyleLabel(preferences.templateId),
+    depth: getDepthLabel(preferences.depth),
+  };
+}
