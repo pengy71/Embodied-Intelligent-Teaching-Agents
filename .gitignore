@@ -99,3 +99,6 @@ e2e/__screenshots-619/
 
 # Codex local config (do not commit)
 .codex/
+
+# local dev tools (portable GitHub CLI etc.)
+/.tools/
