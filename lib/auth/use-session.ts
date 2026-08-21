@@ -61,10 +61,13 @@ export function useSession() {
 
   useEffect(() => {
     subscribers.add(setState);
+    // If the initial useState above already read `cache`, the local state is in
+    // sync and no synchronous setState is needed (that would trigger a cascading
+    // re-render per react-hooks/set-state-in-effect). Otherwise kick off the
+    // shared fetch — the resolved state will arrive via the `subscribers`
+    // callback that we just registered.
     if (!cache && !inflight) {
       void refreshSession();
-    } else if (cache) {
-      setState(cache);
     }
     return () => {
       subscribers.delete(setState);

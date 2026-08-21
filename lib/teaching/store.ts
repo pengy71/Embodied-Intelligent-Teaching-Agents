@@ -30,8 +30,7 @@ export function getPool(): Pool {
     if (!connectionString) {
       throw new Error('DATABASE_URL is not configured');
     }
-    // PgBouncer 事务模式：禁用 prepared statement，避免偶发 "prepared statement S_x does not exist"。
-    pool = new Pool({ connectionString, prepare: false });
+    pool = new Pool({ connectionString });
   }
   return pool;
 }
@@ -290,10 +289,9 @@ export async function getResourceContent(
   };
 }
 
-
 // === 学生学习进度 ===
 
-export type StudentProgressStatus = "learning" | "learned";
+export type StudentProgressStatus = 'learning' | 'learned';
 
 export interface StudentProgressEntry {
   pointId: string;
@@ -304,16 +302,14 @@ export interface StudentProgressEntry {
 export async function getProgress(studentId: string): Promise<StudentProgressEntry[]> {
   await ensureTeachingSchema();
   const { rows } = await getPool().query(
-    "SELECT point_id, status, updated_at FROM teaching_student_progress WHERE student_id = $1",
+    'SELECT point_id, status, updated_at FROM teaching_student_progress WHERE student_id = $1',
     [studentId],
   );
-  return rows.map(
-    (r: { point_id: string; status: string; updated_at: string }) => ({
-      pointId: r.point_id,
-      status: r.status as StudentProgressStatus,
-      updatedAt: r.updated_at,
-    }),
-  );
+  return rows.map((r: { point_id: string; status: string; updated_at: string }) => ({
+    pointId: r.point_id,
+    status: r.status as StudentProgressStatus,
+    updatedAt: r.updated_at,
+  }));
 }
 
 export async function upsertProgress(
@@ -323,11 +319,10 @@ export async function upsertProgress(
 ): Promise<void> {
   await ensureTeachingSchema();
   await getPool().query(
-    "INSERT INTO teaching_student_progress (student_id, point_id, status, updated_at) VALUES ($1, $2, $3, now()) ON CONFLICT (student_id, point_id) DO UPDATE SET status = EXCLUDED.status, updated_at = now()",
+    'INSERT INTO teaching_student_progress (student_id, point_id, status, updated_at) VALUES ($1, $2, $3, now()) ON CONFLICT (student_id, point_id) DO UPDATE SET status = EXCLUDED.status, updated_at = now()',
     [studentId, pointId, status],
   );
 }
-
 
 // === 知识点讲解缓存（pointId -> classroomId）===
 
@@ -391,19 +386,16 @@ export async function getResourcesForPoint(
 ): Promise<PointResourceExcerpt[]> {
   await ensureTeachingSchema();
   const { rows } = await getPool().query(
-    "SELECT id, name, type, parsed_text FROM teaching_resources WHERE status = $1 AND parsed_text IS NOT NULL AND point_ids @> $2::jsonb ORDER BY updated_at DESC LIMIT $3",
-    ["ready", JSON.stringify([pointId]), limit],
+    'SELECT id, name, type, parsed_text FROM teaching_resources WHERE status = $1 AND parsed_text IS NOT NULL AND point_ids @> $2::jsonb ORDER BY updated_at DESC LIMIT $3',
+    ['ready', JSON.stringify([pointId]), limit],
   );
-  return rows.map(
-    (r: { id: string; name: string; type: string; parsed_text: string | null }) => ({
-      id: r.id,
-      name: r.name,
-      type: r.type,
-      excerpt: (r.parsed_text ?? "").slice(0, maxChars),
-    }),
-  );
+  return rows.map((r: { id: string; name: string; type: string; parsed_text: string | null }) => ({
+    id: r.id,
+    name: r.name,
+    type: r.type,
+    excerpt: (r.parsed_text ?? '').slice(0, maxChars),
+  }));
 }
-
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToResource(r: any): TeachingResource {

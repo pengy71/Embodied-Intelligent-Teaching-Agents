@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useRouter } from "next/navigation";
-import { GraduationCap, User, ArrowRight, Brain, Sparkles } from "lucide-react";
+import { useRouter } from 'next/navigation';
+import { GraduationCap, User, ArrowRight, Brain, Sparkles } from 'lucide-react';
 
 export default function HomePage() {
   const router = useRouter();
@@ -25,7 +25,7 @@ export default function HomePage() {
           </h1>
           <p className="mx-auto max-w-2xl text-base text-slate-500">
             通过课程知识图谱、长期学习记忆、多智能体协同，
-            实现"教师-AI-学生"协同的智能教学模式
+            实现&ldquo;教师-AI-学生&rdquo;协同的智能教学模式
           </p>
           <div className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
             <Sparkles className="h-3 w-3" />
@@ -37,7 +37,7 @@ export default function HomePage() {
         <div className="grid gap-6 md:grid-cols-2">
           {/* Teacher */}
           <button
-            onClick={() => router.push("/teaching/teacher")}
+            onClick={() => router.push('/teaching/teacher')}
             className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-8 text-left shadow-sm transition-all hover:-translate-y-1 hover:border-primary/30 hover:shadow-xl hover:shadow-primary/5"
           >
             <div className="absolute right-0 top-0 h-32 w-32 translate-x-12 -translate-y-12 rounded-full bg-primary/5 transition-transform group-hover:scale-150" />
@@ -50,7 +50,7 @@ export default function HomePage() {
                 课程知识体系构建、学情分析、教学辅助。帮助教师实现教学数据化、辅导精准化和备课高效化。
               </p>
               <div className="flex flex-wrap gap-2">
-                {["课程概览", "课程建设", "教学工具"].map((tag) => (
+                {['课程概览', '课程建设', '教学工具'].map((tag) => (
                   <span
                     key={tag}
                     className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600"
@@ -68,7 +68,7 @@ export default function HomePage() {
 
           {/* Student */}
           <button
-            onClick={() => router.push("/teaching/student")}
+            onClick={() => router.push('/teaching/student')}
             className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-8 text-left shadow-sm transition-all hover:-translate-y-1 hover:border-primary/30 hover:shadow-xl hover:shadow-primary/5"
           >
             <div className="absolute right-0 top-0 h-32 w-32 translate-x-12 -translate-y-12 rounded-full bg-emerald-500/5 transition-transform group-hover:scale-150" />
@@ -81,7 +81,7 @@ export default function HomePage() {
                 个性化学习支持、智能答疑、练习测试。AI教师随学习行为持续演化，成为专属你的AI教师。
               </p>
               <div className="flex flex-wrap gap-2">
-                {["AI学习助手", "学习资源", "答疑中心", "练习测试"].map((tag) => (
+                {['AI学习助手', '学习资源', '答疑中心', '练习测试'].map((tag) => (
                   <span
                     key={tag}
                     className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600"

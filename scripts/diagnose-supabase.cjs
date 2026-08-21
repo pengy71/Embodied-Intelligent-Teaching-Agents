@@ -8,7 +8,7 @@ if (!cs) {
   process.exit(1);
 }
 
-const pool = new Pool({ connectionString: cs, max: 3, prepare: false });
+const pool = new Pool({ connectionString: cs, max: 3 });
 
 const OPENMAIC_RUNTIME = `
 CREATE TABLE IF NOT EXISTS runtime_sessions (
@@ -64,7 +64,9 @@ async function run() {
     // 2. 确保扩展
     await client.query(`CREATE EXTENSION IF NOT EXISTS vector`);
     await client.query(`CREATE EXTENSION IF NOT EXISTS pgcrypto`);
-    const ext = await client.query(`SELECT extname FROM pg_extension WHERE extname IN ('vector','pgcrypto')`);
+    const ext = await client.query(
+      `SELECT extname FROM pg_extension WHERE extname IN ('vector','pgcrypto')`,
+    );
     console.log('\n=== 扩展 ===');
     for (const r of ext.rows) console.log('  -', r.extname);
 
@@ -82,7 +84,9 @@ async function run() {
         await client.query(s);
       }
     }
-    console.log('  runtime_sessions / runtime_records / document_stages / document_scenes / document_outlines 已确保存在');
+    console.log(
+      '  runtime_sessions / runtime_records / document_stages / document_scenes / document_outlines 已确保存在',
+    );
 
     // 4. 统计每张表行数
     const allTables = await client.query(

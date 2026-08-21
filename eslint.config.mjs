@@ -33,12 +33,27 @@ const eslintConfig = defineConfig([
     // Isolated MP4 render service: its own package, tsconfig, and Node-only
     // deps (@hyperframes/producer). Linted/typechecked under render-service/.
     'render-service/**',
+    // CommonJS scripts (run directly via `node`, not bundled). They use
+    // `require()` by design, which the TS plugin would otherwise flag.
+    'scripts/**/*.cjs',
+    // Local-only scratch archives (not in git, but may be present on disk
+    // during development): ignore them so they don't pollute lint output.
+    '.codex/**',
+    '.scratch/**',
   ]),
   {
     rules: {
       // Dynamic AI-generated image URLs from various providers are incompatible
       // with next/image (requires known dimensions and whitelisted domains).
       '@next/next/no-img-element': 'off',
+      // The project does not enable the React Compiler, so the diagnostics
+      // produced by eslint-plugin-react-hooks's preserve-manual-memoization
+      // rule (which calls out useMemo / useCallback shapes the Compiler
+      // can't safely auto-memoise) are noise here. The Compiler is opt-in;
+      // these warnings don't reflect a real bug — only a missed opportunity
+      // to rely on the Compiler instead of hand-written memoisation. Turn
+      // them off so they don't block CI.
+      'react-hooks/preserve-manual-memoization': 'off',
       // Allow unused vars/args prefixed with _ (common convention for intentionally
       // unused destructured values, callback params, etc.)
       '@typescript-eslint/no-unused-vars': [
