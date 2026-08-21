@@ -25,7 +25,11 @@ export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
   if (!isTeachingStoreConfigured()) {
-    return apiError('INVALID_REQUEST', 503, 'Teaching knowledge base not configured: please set DATABASE_URL');
+    return apiError(
+      'INVALID_REQUEST',
+      503,
+      'Teaching knowledge base not configured: please set DATABASE_URL',
+    );
   }
 
   let body: { pointId?: unknown; force?: unknown };
@@ -65,7 +69,10 @@ export async function POST(req: NextRequest) {
         log.warn(`Learn cache stale (classroom file missing): pointId=${pointId}, regenerating`);
       }
     } catch (err) {
-      log.warn(`Learn cache lookup failed for pointId=${pointId}, falling back to generation:`, err);
+      log.warn(
+        `Learn cache lookup failed for pointId=${pointId}, falling back to generation:`,
+        err,
+      );
     }
   }
 
@@ -80,7 +87,11 @@ export async function POST(req: NextRequest) {
     const resources = await getResourcesForPoint(pointId);
     requirement = buildLearnRequirement(ctx, resources);
   } catch (err) {
-    return apiError('INTERNAL_ERROR', 500, err instanceof Error ? err.message : 'Failed to build learning context');
+    return apiError(
+      'INTERNAL_ERROR',
+      500,
+      err instanceof Error ? err.message : 'Failed to build learning context',
+    );
   }
 
   // 3. Delegate to the OpenMAIC multi-agent classroom generation pipeline (job-based).
@@ -103,7 +114,9 @@ export async function POST(req: NextRequest) {
               jobId,
               job.result.scenesCount ?? null,
             );
-            log.info(`Cached classroom for pointId=${pointId} classroomId=${job.result.classroomId}`);
+            log.info(
+              `Cached classroom for pointId=${pointId} classroomId=${job.result.classroomId}`,
+            );
           }
         } catch (cacheErr) {
           log.warn(`Failed to update learn cache for pointId=${pointId}:`, cacheErr);
@@ -116,6 +129,10 @@ export async function POST(req: NextRequest) {
       202,
     );
   } catch (err) {
-    return apiError('INTERNAL_ERROR', 500, err instanceof Error ? err.message : 'Failed to start generation');
+    return apiError(
+      'INTERNAL_ERROR',
+      500,
+      err instanceof Error ? err.message : 'Failed to start generation',
+    );
   }
 }

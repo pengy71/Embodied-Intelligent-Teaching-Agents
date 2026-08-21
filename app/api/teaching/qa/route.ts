@@ -22,7 +22,11 @@ async function resolveStudentId(): Promise<string> {
 
 export async function POST(request: Request) {
   if (!isTeachingStoreConfigured()) {
-    return apiError('INVALID_REQUEST', 503, 'Teaching knowledge base not configured: please set DATABASE_URL');
+    return apiError(
+      'INVALID_REQUEST',
+      503,
+      'Teaching knowledge base not configured: please set DATABASE_URL',
+    );
   }
 
   try {
@@ -74,6 +78,10 @@ export async function POST(request: Request) {
       relatedPoints: result.relatedPoints,
     });
   } catch (err) {
-    return apiError('INTERNAL_ERROR', 500, err instanceof Error ? err.message : 'Failed to answer question');
+    return apiError(
+      'INTERNAL_ERROR',
+      500,
+      err instanceof Error ? err.message : 'Failed to answer question',
+    );
   }
 }

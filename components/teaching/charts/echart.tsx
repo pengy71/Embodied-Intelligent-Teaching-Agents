@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { useEffect, useRef } from "react";
-import * as echarts from "echarts";
-import { cn } from "@/lib/utils";
+import { useEffect, useRef } from 'react';
+import * as echarts from 'echarts';
+import { cn } from '@/lib/utils';
 
 interface EChartProps {
   option: echarts.EChartsCoreOption;
@@ -21,14 +21,13 @@ export function EChart({ option, className, style }: EChartProps) {
     chartInstance.current.setOption(option);
 
     const handleResize = () => chartInstance.current?.resize();
-    window.addEventListener("resize", handleResize);
+    window.addEventListener('resize', handleResize);
 
     return () => {
-      window.removeEventListener("resize", handleResize);
+      window.removeEventListener('resize', handleResize);
       chartInstance.current?.dispose();
     };
   }, [option]);
 
-  return <div ref={chartRef} className={cn("w-full", className)} style={style} />;
+  return <div ref={chartRef} className={cn('w-full', className)} style={style} />;
 }
-

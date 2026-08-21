@@ -37,7 +37,11 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   if (!isTeachingStoreConfigured()) {
-    return apiError('INVALID_REQUEST', 503, 'Teaching knowledge base not configured: please set DATABASE_URL');
+    return apiError(
+      'INVALID_REQUEST',
+      503,
+      'Teaching knowledge base not configured: please set DATABASE_URL',
+    );
   }
   try {
     const user = await getSessionUser();
@@ -75,8 +79,12 @@ export async function GET(request: Request) {
 
     const currentChapter =
       doc.chapters.find((chapter) =>
-        chapter.sections.some((section) => section.points.some((point) => !masteredPoints.includes(point.id))),
-      )?.id ?? doc.chapters[0]?.id ?? '';
+        chapter.sections.some((section) =>
+          section.points.some((point) => !masteredPoints.includes(point.id)),
+        ),
+      )?.id ??
+      doc.chapters[0]?.id ??
+      '';
 
     const learningHistory = events
       .filter((event) => getPoint(doc, event.knowledgeNodeId))
@@ -86,7 +94,7 @@ export async function GET(request: Request) {
         mastery:
           typeof event.score === 'number'
             ? clampPercent(event.score)
-            : masteryByPoint.get(event.knowledgeNodeId) ?? 0,
+            : (masteryByPoint.get(event.knowledgeNodeId) ?? 0),
       }))
       .sort((a, b) => a.timestamp - b.timestamp);
 
@@ -116,7 +124,11 @@ export async function GET(request: Request) {
       generatedAt: new Date().toISOString(),
     });
   } catch (err) {
-    return apiError('INTERNAL_ERROR', 500, err instanceof Error ? err.message : 'Failed to generate learning suggestions');
+    return apiError(
+      'INTERNAL_ERROR',
+      500,
+      err instanceof Error ? err.message : 'Failed to generate learning suggestions',
+    );
   }
 }
 
@@ -126,7 +138,11 @@ function clampPercent(value: number): number {
 }
 
 /** Compute real mastery (0-100) for a knowledge point from the student's learning events. */
-function computePointMastery(pointId: string, events: TeachingLearningEvent[], baseline = 50): number {
+function computePointMastery(
+  pointId: string,
+  events: TeachingLearningEvent[],
+  baseline = 50,
+): number {
   const scores = events
     .filter((event) => event.knowledgeNodeId === pointId)
     .map((event) => event.score)
@@ -151,7 +167,7 @@ function generateRecommendations(doc: KnowledgeDoc, studentProgress: StudentProg
         pointId: point.id,
         title: point.title,
         reason: 'Prerequisites mastered, ready to learn',
-        priority: 'high'
+        priority: 'high',
       });
     }
   }
@@ -165,7 +181,7 @@ function generateRecommendations(doc: KnowledgeDoc, studentProgress: StudentProg
         pointId: point.id,
         title: point.title,
         reason: 'Needs strengthening',
-        priority: 'medium'
+        priority: 'medium',
       });
     }
   }
@@ -183,7 +199,7 @@ function generateRecommendations(doc: KnowledgeDoc, studentProgress: StudentProg
               pointId: relatedId,
               title: relatedPoint.title,
               reason: 'Related to mastered "' + point.title + '"',
-              priority: 'low'
+              priority: 'low',
             });
           }
         }
@@ -194,7 +210,7 @@ function generateRecommendations(doc: KnowledgeDoc, studentProgress: StudentProg
   return [
     ...prerequisiteRecommendations.slice(0, 3),
     ...weakPointRecommendations.slice(0, 2),
-    ...relatedRecommendations.slice(0, 2)
+    ...relatedRecommendations.slice(0, 2),
   ];
 }
 
@@ -203,9 +219,10 @@ function generateLearningPath(doc: KnowledgeDoc, studentProgress: StudentProgres
 
   const path = [];
   for (const chapter of doc.chapters) {
-    const chapterPoints = chapter.sections.flatMap(s => s.points);
-    const masteredInChapter = chapterPoints.filter(p => masteredSet.has(p.id)).length;
-    const progress = chapterPoints.length > 0 ? Math.round((masteredInChapter / chapterPoints.length) * 100) : 0;
+    const chapterPoints = chapter.sections.flatMap((s) => s.points);
+    const masteredInChapter = chapterPoints.filter((p) => masteredSet.has(p.id)).length;
+    const progress =
+      chapterPoints.length > 0 ? Math.round((masteredInChapter / chapterPoints.length) * 100) : 0;
 
     path.push({
       chapterId: chapter.id,
@@ -214,12 +231,12 @@ function generateLearningPath(doc: KnowledgeDoc, studentProgress: StudentProgres
       totalPoints: chapterPoints.length,
       masteredPoints: masteredInChapter,
       isCurrent: chapter.id === studentProgress.currentChapter,
-      points: chapterPoints.map(p => ({
+      points: chapterPoints.map((p) => ({
         id: p.id,
         title: p.title,
         mastered: masteredSet.has(p.id),
-        isWeak: studentProgress.weakPoints.includes(p.id)
-      }))
+        isWeak: studentProgress.weakPoints.includes(p.id),
+      })),
     });
   }
 
@@ -241,7 +258,7 @@ function generateTodaySuggestions(doc: KnowledgeDoc, studentProgress: StudentPro
         pointId: point.id,
         title: point.title,
         estimatedTime: 15,
-        reason: 'Weak point needs consolidation'
+        reason: 'Weak point needs consolidation',
       });
     }
   }
@@ -256,7 +273,7 @@ function generateTodaySuggestions(doc: KnowledgeDoc, studentProgress: StudentPro
         pointId: point.id,
         title: point.title,
         estimatedTime: 20,
-        reason: 'Prerequisites mastered, ready to learn'
+        reason: 'Prerequisites mastered, ready to learn',
       });
       if (suggestions.length >= 3) break;
     }

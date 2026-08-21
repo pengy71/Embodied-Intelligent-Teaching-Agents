@@ -9,11 +9,19 @@ export const dynamic = 'force-dynamic';
 /** 手动触发知识点向量索引重建。资源原文块在资源上传时已自动索引。 */
 export async function POST() {
   if (!isTeachingStoreConfigured()) {
-    return apiError('INVALID_REQUEST', 503, 'Teaching knowledge base not configured: please set DATABASE_URL');
+    return apiError(
+      'INVALID_REQUEST',
+      503,
+      'Teaching knowledge base not configured: please set DATABASE_URL',
+    );
   }
 
   if (!isEmbeddingConfigured()) {
-    return apiError('INVALID_REQUEST', 503, 'Embedding not configured: please set GLM_API_KEY or EMBEDDING_API_KEY');
+    return apiError(
+      'INVALID_REQUEST',
+      503,
+      'Embedding not configured: please set GLM_API_KEY or EMBEDDING_API_KEY',
+    );
   }
 
   try {

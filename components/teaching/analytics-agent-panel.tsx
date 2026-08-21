@@ -109,7 +109,9 @@ export function AnalyticsAgentPanel() {
   return (
     <div className="space-y-4">
       {data.dataStatusLabel ? (
-        <Badge variant="secondary" className="text-xs">{data.dataStatusLabel}</Badge>
+        <Badge variant="secondary" className="text-xs">
+          {data.dataStatusLabel}
+        </Badge>
       ) : null}
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
@@ -119,7 +121,9 @@ export function AnalyticsAgentPanel() {
               <div className="text-xs text-muted-foreground">{item.label}</div>
               <div className="mt-1 text-2xl font-semibold">
                 {item.value}
-                <span className="ml-1 text-sm font-normal text-muted-foreground">{item.suffix}</span>
+                <span className="ml-1 text-sm font-normal text-muted-foreground">
+                  {item.suffix}
+                </span>
               </div>
             </CardContent>
           </Card>
@@ -137,7 +141,9 @@ export function AnalyticsAgentPanel() {
             <div key={chapter.chapterId} className="space-y-1">
               <div className="flex items-center justify-between text-sm">
                 <span className="truncate">{chapter.chapter}</span>
-                <span className="text-muted-foreground">掌握 {chapter.mastery}% · 完成 {chapter.completion}%</span>
+                <span className="text-muted-foreground">
+                  掌握 {chapter.mastery}% · 完成 {chapter.completion}%
+                </span>
               </div>
               <Progress value={chapter.mastery} className="h-2" />
             </div>
@@ -159,7 +165,9 @@ export function AnalyticsAgentPanel() {
               data.weakPoints.map((point) => (
                 <div key={point.pointId} className="flex items-center justify-between text-sm">
                   <span className="truncate">{point.title}</span>
-                  <Badge variant="destructive" className="ml-2 text-xs">掌握 {point.mastery}%</Badge>
+                  <Badge variant="destructive" className="ml-2 text-xs">
+                    掌握 {point.mastery}%
+                  </Badge>
                 </div>
               ))
             )}
@@ -177,7 +185,9 @@ export function AnalyticsAgentPanel() {
               <p className="text-sm text-muted-foreground">暂无建议。</p>
             ) : (
               data.teachingSuggestions.map((suggestion, index) => (
-                <p key={index} className="text-sm">{index + 1}. {suggestion}</p>
+                <p key={index} className="text-sm">
+                  {index + 1}. {suggestion}
+                </p>
               ))
             )}
           </CardContent>

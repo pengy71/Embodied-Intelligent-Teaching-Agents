@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-export type LearningEventType = "study" | "practice" | "qa" | "quiz" | "review";
+export type LearningEventType = 'study' | 'practice' | 'qa' | 'quiz' | 'review';
 
 export interface TrackLearningEventInput {
   /** Deprecated - the server now derives the student from the session. */
@@ -17,9 +17,9 @@ export interface TrackLearningEventInput {
 export async function trackLearningEvent(input: TrackLearningEventInput): Promise<void> {
   if (!input.knowledgeNodeId) return;
   try {
-    await fetch("/api/teaching/learning-event", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+    await fetch('/api/teaching/learning-event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         eventType: input.eventType,
         knowledgeNodeId: input.knowledgeNodeId,
@@ -27,7 +27,7 @@ export async function trackLearningEvent(input: TrackLearningEventInput): Promis
         durationMinutes: input.durationMinutes ?? 0,
         payload: input.payload ?? {},
       }),
-      cache: "no-store",
+      cache: 'no-store',
     });
   } catch {
     // Swallow: tracking must never break the learning experience.

@@ -71,7 +71,9 @@ export function isValidClassroomId(id: string): boolean {
 
 export async function readClassroom(id: string): Promise<PersistedClassroomData | null> {
   await ensureClassroomsSchema();
-  const { rows } = await getClassroomPool().query('SELECT data FROM classrooms WHERE id = $1', [id]);
+  const { rows } = await getClassroomPool().query('SELECT data FROM classrooms WHERE id = $1', [
+    id,
+  ]);
   if (!rows.length) return null;
   return rows[0].data as PersistedClassroomData;
 }

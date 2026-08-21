@@ -1,10 +1,6 @@
-import { FloatingQA } from "@/components/teaching/floating-qa";
+import { FloatingQA } from '@/components/teaching/floating-qa';
 
-export default function ClassroomLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function ClassroomLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
       {children}

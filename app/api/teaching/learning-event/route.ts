@@ -9,13 +9,7 @@ import type { TeachingLearningEvent } from '@/lib/teaching/types';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const ALLOWED_EVENT_TYPES = new Set([
-  'study',
-  'practice',
-  'qa',
-  'quiz',
-  'review',
-]);
+const ALLOWED_EVENT_TYPES = new Set(['study', 'practice', 'qa', 'quiz', 'review']);
 
 export async function POST(req: NextRequest) {
   try {
@@ -40,7 +34,11 @@ export async function POST(req: NextRequest) {
     const knowledgeNodeId = (body.knowledgeNodeId ?? '').trim();
 
     if (!ALLOWED_EVENT_TYPES.has(eventType)) {
-      return apiError('INVALID_REQUEST', 400, `eventType must be one of: ${Array.from(ALLOWED_EVENT_TYPES).join(', ')}`);
+      return apiError(
+        'INVALID_REQUEST',
+        400,
+        `eventType must be one of: ${Array.from(ALLOWED_EVENT_TYPES).join(', ')}`,
+      );
     }
     if (!knowledgeNodeId) {
       return apiError('INVALID_REQUEST', 400, 'knowledgeNodeId is required');
@@ -64,6 +62,10 @@ export async function POST(req: NextRequest) {
 
     return apiSuccess({ event }, 201);
   } catch (err) {
-    return apiError('INTERNAL_ERROR', 500, err instanceof Error ? err.message : 'Failed to record learning event');
+    return apiError(
+      'INTERNAL_ERROR',
+      500,
+      err instanceof Error ? err.message : 'Failed to record learning event',
+    );
   }
 }

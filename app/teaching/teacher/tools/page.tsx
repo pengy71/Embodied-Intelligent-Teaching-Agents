@@ -1,15 +1,15 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { PageHeader } from "@/components/layout/page-header";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { EChart } from "@/components/teaching/charts/echart";
-import type { TeacherAnalyticsResult } from "@/lib/teaching/types";
+import { useEffect, useState } from 'react';
+import { PageHeader } from '@/components/layout/page-header';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { EChart } from '@/components/teaching/charts/echart';
+import type { TeacherAnalyticsResult } from '@/lib/teaching/types';
 import {
   AlertTriangle,
   Award,
@@ -26,40 +26,48 @@ import {
   RefreshCw,
   TrendingUp,
   Users,
-} from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useTeacherStageTests } from "@/lib/teaching/use-stage-tests";
-import { useKnowledge } from "@/lib/teaching/use-knowledge";
-import type { StageTestDifficulty, TeacherExportType } from "@/lib/teaching/types";
-import { toast } from "sonner";
-import { exportBehaviorStats, exportGradeSheet, exportTestReport } from "@/lib/teaching/export";
+} from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useTeacherStageTests } from '@/lib/teaching/use-stage-tests';
+import { useKnowledge } from '@/lib/teaching/use-knowledge';
+import type { StageTestDifficulty, TeacherExportType } from '@/lib/teaching/types';
+import { toast } from 'sonner';
+import { exportBehaviorStats, exportGradeSheet, exportTestReport } from '@/lib/teaching/export';
 
-const RADAR_LABELS = ["环境感知", "世界模型", "任务规划", "Motion Planning", "Manipulation", "强化学习", "多智能体"];
-const WEEK_LABELS = ["第1周", "第2周", "第3周", "第4周"];
-const TEST_LABELS = ["优秀(90+)", "良好(80-89)", "及格(60-79)", "待提升(<60)"];
-const ERROR_LABELS = ["Manipulation", "多智能体协同", "Motion Planning", "世界模型", "强化学习"];
+const RADAR_LABELS = [
+  '环境感知',
+  '世界模型',
+  '任务规划',
+  'Motion Planning',
+  'Manipulation',
+  '强化学习',
+  '多智能体',
+];
+const WEEK_LABELS = ['第1周', '第2周', '第3周', '第4周'];
+const TEST_LABELS = ['优秀(90+)', '良好(80-89)', '及格(60-79)', '待提升(<60)'];
+const ERROR_LABELS = ['Manipulation', '多智能体协同', 'Motion Planning', '世界模型', '强化学习'];
 
 const DIFF_LABEL: Record<StageTestDifficulty, string> = {
-  easy: "简单",
-  medium: "中等",
-  hard: "困难",
-  mixed: "混合",
+  easy: '简单',
+  medium: '中等',
+  hard: '困难',
+  mixed: '混合',
 };
 
 export default function TeacherToolsPage() {
-  const [activeTab, setActiveTab] = useState("knowledge-analysis");
+  const [activeTab, setActiveTab] = useState('knowledge-analysis');
   const [analytics, setAnalytics] = useState<TeacherAnalyticsResult | null>(null);
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(true);
   const [analyticsError, setAnalyticsError] = useState<string | null>(null);
 
   const stageTests = useTeacherStageTests();
   const knowledge = useKnowledge();
-  const [testTitle, setTestTitle] = useState("");
-  const [testDesc, setTestDesc] = useState("");
+  const [testTitle, setTestTitle] = useState('');
+  const [testDesc, setTestDesc] = useState('');
   const [testChapterIds, setTestChapterIds] = useState<string[]>([]);
   const [testCount, setTestCount] = useState(8);
-  const [testDifficulty, setTestDifficulty] = useState<StageTestDifficulty>("mixed");
+  const [testDifficulty, setTestDifficulty] = useState<StageTestDifficulty>('mixed');
   const [publishing, setPublishing] = useState(false);
 
   const loadAnalytics = async (force = false) => {
@@ -67,15 +75,15 @@ export default function TeacherToolsPage() {
     setAnalyticsError(null);
     try {
       const response = force
-        ? await fetch("/api/teaching/teacher-analytics", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
+        ? await fetch('/api/teaching/teacher-analytics', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
             body: JSON.stringify({ force: true }),
           })
-        : await fetch("/api/teaching/teacher-analytics", { method: "GET" });
+        : await fetch('/api/teaching/teacher-analytics', { method: 'GET' });
       const data = await response.json();
       if (!response.ok || !data.success) {
-        throw new Error(data.error || "学情分析 agent 调用失败");
+        throw new Error(data.error || '学情分析 agent 调用失败');
       }
       const result = data.result as TeacherAnalyticsResult | null;
       if (result) {
@@ -83,7 +91,7 @@ export default function TeacherToolsPage() {
       }
     } catch (error) {
       if (force) {
-        setAnalyticsError(error instanceof Error ? error.message : "学情分析 agent 调用失败");
+        setAnalyticsError(error instanceof Error ? error.message : '学情分析 agent 调用失败');
       }
     } finally {
       setIsLoadingAnalytics(false);
@@ -98,9 +106,7 @@ export default function TeacherToolsPage() {
   const chapterLabel = (id: string) => chapters.find((c) => c.id === id)?.title ?? id;
 
   const toggleTestChapter = (id: string) => {
-    setTestChapterIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    );
+    setTestChapterIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
   const handlePublishTest = async () => {
@@ -112,11 +118,11 @@ export default function TeacherToolsPage() {
         description: testDesc.trim(),
         config: { chapterIds: testChapterIds, count: testCount, difficulty: testDifficulty },
       });
-      setTestTitle("");
-      setTestDesc("");
+      setTestTitle('');
+      setTestDesc('');
       setTestChapterIds([]);
       setTestCount(8);
-      setTestDifficulty("mixed");
+      setTestDifficulty('mixed');
     } finally {
       setPublishing(false);
     }
@@ -130,73 +136,71 @@ export default function TeacherToolsPage() {
     warningCount: 0,
   };
 
-  const radarData =
-    analytics?.radar.length
-      ? analytics.radar
-      : RADAR_LABELS.map((name) => ({ name, mastery: 0 }));
+  const radarData = analytics?.radar.length
+    ? analytics.radar
+    : RADAR_LABELS.map((name) => ({ name, mastery: 0 }));
   const chapterData = analytics?.chapters ?? [];
   const studentRows = analytics?.students ?? [];
   const hotQuestions = analytics?.hotQuestions ?? [];
-  const questionTrend =
-    analytics?.questionTrend.length
-      ? analytics.questionTrend
-      : WEEK_LABELS.map((label) => ({ label, count: 0 }));
-  const testDistribution =
-    analytics?.testDistribution.length
-      ? analytics.testDistribution
-      : TEST_LABELS.map((label) => ({ label, value: 0 }));
-  const errorDistribution =
-    analytics?.errorDistribution.length
-      ? analytics.errorDistribution
-      : ERROR_LABELS.map((name) => ({ name, value: 0 }));
+  const questionTrend = analytics?.questionTrend.length
+    ? analytics.questionTrend
+    : WEEK_LABELS.map((label) => ({ label, count: 0 }));
+  const testDistribution = analytics?.testDistribution.length
+    ? analytics.testDistribution
+    : TEST_LABELS.map((label) => ({ label, value: 0 }));
+  const errorDistribution = analytics?.errorDistribution.length
+    ? analytics.errorDistribution
+    : ERROR_LABELS.map((name) => ({ name, value: 0 }));
   const warningStudents = analytics?.warningStudents ?? [];
   const suggestions = analytics?.suggestions ?? [];
   const exportCards = analytics?.exportCards ?? [];
 
   const handleExport = (type: TeacherExportType | undefined, index: number) => {
     if (!analytics) {
-      toast.error("学情数据尚未生成，请先点击右上角“重新生成”");
+      toast.error('学情数据尚未生成，请先点击右上角“重新生成”');
       return;
     }
     const resolvedType: TeacherExportType =
-      type ?? (["grade-sheet", "test-report", "behavior-stats"] as const)[index % 3];
+      type ?? (['grade-sheet', 'test-report', 'behavior-stats'] as const)[index % 3];
     switch (resolvedType) {
-      case "grade-sheet":
+      case 'grade-sheet':
         exportGradeSheet(analytics);
         break;
-      case "test-report":
+      case 'test-report':
         exportTestReport(analytics);
         break;
-      case "behavior-stats":
+      case 'behavior-stats':
         exportBehaviorStats(analytics);
         break;
       default:
-        toast.error("未知的导出类型");
+        toast.error('未知的导出类型');
         return;
     }
-    toast.success("导出成功，已开始下载");
+    toast.success('导出成功，已开始下载');
   };
-  const generatedAt = analytics ? new Date(analytics.generatedAt).toLocaleString("zh-CN") : "等待生成";
-  const modelString = analytics?.modelString ?? "未加载";
+  const generatedAt = analytics
+    ? new Date(analytics.generatedAt).toLocaleString('zh-CN')
+    : '等待生成';
+  const modelString = analytics?.modelString ?? '未加载';
 
   const radarOption = {
     tooltip: {},
     radar: {
       indicator: radarData.map((item) => ({ name: item.name, max: 100 })),
-      axisName: { color: "#64748b", fontSize: 12 },
-      splitLine: { lineStyle: { color: "#e2e8f0" } },
-      splitArea: { areaStyle: { color: ["#f8fafc", "transparent"] } },
+      axisName: { color: '#64748b', fontSize: 12 },
+      splitLine: { lineStyle: { color: '#e2e8f0' } },
+      splitArea: { areaStyle: { color: ['#f8fafc', 'transparent'] } },
     },
     series: [
       {
-        type: "radar",
+        type: 'radar',
         data: [
           {
             value: radarData.map((item) => item.mastery),
-            name: "班级平均",
-            areaStyle: { color: "rgba(59,130,246,0.15)" },
-            lineStyle: { color: "#3b82f6", width: 2 },
-            itemStyle: { color: "#3b82f6" },
+            name: '班级平均',
+            areaStyle: { color: 'rgba(59,130,246,0.15)' },
+            lineStyle: { color: '#3b82f6', width: 2 },
+            itemStyle: { color: '#3b82f6' },
           },
         ],
       },
@@ -204,87 +208,87 @@ export default function TeacherToolsPage() {
   };
 
   const questionTrendOption = {
-    tooltip: { trigger: "axis" },
-    grid: { left: "3%", right: "4%", bottom: "3%", containLabel: true },
+    tooltip: { trigger: 'axis' },
+    grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
     xAxis: {
-      type: "category",
+      type: 'category',
       data: questionTrend.map((item) => item.label),
-      axisLine: { lineStyle: { color: "#e2e8f0" } },
-      axisLabel: { color: "#64748b", fontSize: 12 },
+      axisLine: { lineStyle: { color: '#e2e8f0' } },
+      axisLabel: { color: '#64748b', fontSize: 12 },
     },
     yAxis: {
-      type: "value",
-      splitLine: { lineStyle: { color: "#f1f5f9" } },
-      axisLabel: { color: "#64748b", fontSize: 12 },
+      type: 'value',
+      splitLine: { lineStyle: { color: '#f1f5f9' } },
+      axisLabel: { color: '#64748b', fontSize: 12 },
     },
     series: [
       {
-        type: "bar",
-        barWidth: "40%",
+        type: 'bar',
+        barWidth: '40%',
         data: questionTrend.map((item) => item.count),
-        itemStyle: { borderRadius: [6, 6, 0, 0], color: "#3b82f6" },
+        itemStyle: { borderRadius: [6, 6, 0, 0], color: '#3b82f6' },
       },
     ],
   };
 
   const testDistributionOption = {
-    tooltip: { trigger: "item" },
-    legend: { bottom: 0, left: "center", textStyle: { color: "#64748b", fontSize: 12 } },
+    tooltip: { trigger: 'item' },
+    legend: { bottom: 0, left: 'center', textStyle: { color: '#64748b', fontSize: 12 } },
     series: [
       {
-        type: "pie",
-        radius: ["40%", "65%"],
-        center: ["50%", "45%"],
+        type: 'pie',
+        radius: ['40%', '65%'],
+        center: ['50%', '45%'],
         avoidLabelOverlap: false,
         label: { show: false },
         labelLine: { show: false },
         data: testDistribution.map((item, index) => ({
           value: item.value,
           name: item.label,
-          itemStyle: { color: ["#10b981", "#3b82f6", "#f59e0b", "#ef4444"][index] },
+          itemStyle: { color: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'][index] },
         })),
       },
     ],
   };
 
   const errorDistributionOption = {
-    tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
-    grid: { left: "3%", right: "4%", bottom: "3%", containLabel: true },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
     xAxis: {
-      type: "value",
+      type: 'value',
       axisLine: { show: false },
       axisTick: { show: false },
-      splitLine: { lineStyle: { color: "#f1f5f9" } },
-      axisLabel: { color: "#64748b", fontSize: 12 },
+      splitLine: { lineStyle: { color: '#f1f5f9' } },
+      axisLabel: { color: '#64748b', fontSize: 12 },
     },
     yAxis: {
-      type: "category",
+      type: 'category',
       data: errorDistribution.map((item) => item.name),
-      axisLine: { lineStyle: { color: "#e2e8f0" } },
-      axisLabel: { color: "#64748b", fontSize: 12 },
+      axisLine: { lineStyle: { color: '#e2e8f0' } },
+      axisLabel: { color: '#64748b', fontSize: 12 },
     },
     series: [
       {
-        type: "bar",
-        barWidth: "50%",
+        type: 'bar',
+        barWidth: '50%',
         data: errorDistribution.map((item) => item.value),
         itemStyle: {
           borderRadius: [0, 6, 6, 0],
-          color: "#ef4444",
+          color: '#ef4444',
         },
       },
     ],
   };
 
-  const statusBadge = (status: TeacherAnalyticsResult["students"][number]["status"]) => {
+  const statusBadge = (status: TeacherAnalyticsResult['students'][number]['status']) => {
     switch (status) {
-      case "优秀":
+      case '优秀':
         return <Badge>{status}</Badge>;
-      case "良好":
+      case '良好':
         return <Badge variant="secondary">{status}</Badge>;
-      case "及格":
+      case '及格':
         return <Badge variant="outline">{status}</Badge>;
-      case "预警":
+      case '预警':
         return <Badge variant="destructive">{status}</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
@@ -297,7 +301,7 @@ export default function TeacherToolsPage() {
         title="教学工具"
         description="基于 PostgreSQL 学情数据与 LLM 分析，实时生成班级与个人教学洞察。"
       >
-        <Button variant="outline" size="sm" onClick={() => setActiveTab("export")}>
+        <Button variant="outline" size="sm" onClick={() => setActiveTab('export')}>
           <Download className="mr-1.5 h-3.5 w-3.5" />
           查看导出
         </Button>
@@ -313,8 +317,8 @@ export default function TeacherToolsPage() {
           onClick={() => loadAnalytics(true)}
           disabled={isLoadingAnalytics}
         >
-          <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${isLoadingAnalytics ? "animate-spin" : ""}`} />
-          {isLoadingAnalytics ? "刷新中" : "重新生成"}
+          <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${isLoadingAnalytics ? 'animate-spin' : ''}`} />
+          {isLoadingAnalytics ? '刷新中' : '重新生成'}
         </Button>
       </div>
 
@@ -328,11 +332,31 @@ export default function TeacherToolsPage() {
 
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-5">
         {[
-          { label: "学生总数", value: summary.totalStudents, icon: Users, color: "text-primary" },
-          { label: "今日活跃", value: summary.activeToday, icon: TrendingUp, color: "text-emerald-600" },
-          { label: "平均进度", value: `${summary.averageProgress}%`, icon: BarChart3, color: "text-blue-600" },
-          { label: "平均掌握率", value: `${summary.averageMastery}%`, icon: Award, color: "text-amber-600" },
-          { label: "预警人数", value: summary.warningCount, icon: AlertTriangle, color: "text-rose-600" },
+          { label: '学生总数', value: summary.totalStudents, icon: Users, color: 'text-primary' },
+          {
+            label: '今日活跃',
+            value: summary.activeToday,
+            icon: TrendingUp,
+            color: 'text-emerald-600',
+          },
+          {
+            label: '平均进度',
+            value: `${summary.averageProgress}%`,
+            icon: BarChart3,
+            color: 'text-blue-600',
+          },
+          {
+            label: '平均掌握率',
+            value: `${summary.averageMastery}%`,
+            icon: Award,
+            color: 'text-amber-600',
+          },
+          {
+            label: '预警人数',
+            value: summary.warningCount,
+            icon: AlertTriangle,
+            color: 'text-rose-600',
+          },
         ].map((item) => {
           const Icon = item.icon;
           return (
@@ -374,7 +398,7 @@ export default function TeacherToolsPage() {
                 <CardDescription>班级在核心知识维度上的平均掌握情况</CardDescription>
               </CardHeader>
               <CardContent>
-                <EChart option={radarOption} style={{ height: "320px" }} />
+                <EChart option={radarOption} style={{ height: '320px' }} />
               </CardContent>
             </Card>
 
@@ -393,7 +417,9 @@ export default function TeacherToolsPage() {
                   <div key={chapter.id} className="space-y-2">
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-sm font-medium">{chapter.title}</span>
-                      <span className={`text-sm font-bold ${chapter.mastery >= 60 ? "text-emerald-600" : "text-rose-600"}`}>
+                      <span
+                        className={`text-sm font-bold ${chapter.mastery >= 60 ? 'text-emerald-600' : 'text-rose-600'}`}
+                      >
                         {chapter.mastery}%
                       </span>
                     </div>
@@ -470,10 +496,10 @@ export default function TeacherToolsPage() {
                           <span
                             className={`text-sm font-medium ${
                               student.testScore >= 80
-                                ? "text-emerald-600"
+                                ? 'text-emerald-600'
                                 : student.testScore >= 60
-                                  ? "text-amber-600"
-                                  : "text-rose-600"
+                                  ? 'text-amber-600'
+                                  : 'text-rose-600'
                             }`}
                           >
                             {student.testScore}
@@ -482,7 +508,9 @@ export default function TeacherToolsPage() {
                         <td className="py-3 pr-4">
                           <div className="space-y-1">
                             {statusBadge(student.status)}
-                            {student.reason && <p className="text-xs text-muted-foreground">{student.reason}</p>}
+                            {student.reason && (
+                              <p className="text-xs text-muted-foreground">{student.reason}</p>
+                            )}
                           </div>
                         </td>
                         <td className="py-3">
@@ -525,7 +553,9 @@ export default function TeacherToolsPage() {
                         </span>
                         <div>
                           <p className="text-sm font-medium">{question.topic}</p>
-                          <p className="mt-0.5 text-xs text-muted-foreground">关联知识点：{question.knowledgePoint}</p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            关联知识点：{question.knowledgePoint}
+                          </p>
                         </div>
                       </div>
                       <Badge variant="secondary">{question.count} 次</Badge>
@@ -541,7 +571,7 @@ export default function TeacherToolsPage() {
                 <CardDescription>最近四周学生提问量变化</CardDescription>
               </CardHeader>
               <CardContent>
-                <EChart option={questionTrendOption} style={{ height: "260px" }} />
+                <EChart option={questionTrendOption} style={{ height: '260px' }} />
               </CardContent>
             </Card>
           </div>
@@ -555,7 +585,7 @@ export default function TeacherToolsPage() {
                 <CardDescription>本阶段测验成绩区间统计</CardDescription>
               </CardHeader>
               <CardContent>
-                <EChart option={testDistributionOption} style={{ height: "280px" }} />
+                <EChart option={testDistributionOption} style={{ height: '280px' }} />
                 <div className="mt-4 grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
                   {testDistribution.map((item) => (
                     <div key={item.label} className="rounded-lg border p-2">
@@ -573,7 +603,7 @@ export default function TeacherToolsPage() {
                 <CardDescription>找出章节中错题率最高的知识点</CardDescription>
               </CardHeader>
               <CardContent>
-                <EChart option={errorDistributionOption} style={{ height: "280px" }} />
+                <EChart option={errorDistributionOption} style={{ height: '280px' }} />
               </CardContent>
             </Card>
           </div>
@@ -624,7 +654,10 @@ export default function TeacherToolsPage() {
                     {chapters.map((c) => {
                       const checked = testChapterIds.includes(c.id);
                       return (
-                        <label key={c.id} className="flex cursor-pointer items-center gap-2 text-sm">
+                        <label
+                          key={c.id}
+                          className="flex cursor-pointer items-center gap-2 text-sm"
+                        >
                           <input
                             type="checkbox"
                             className="h-4 w-4 accent-primary"
@@ -674,7 +707,7 @@ export default function TeacherToolsPage() {
                   ) : (
                     <Plus className="mr-1.5 h-3.5 w-3.5" />
                   )}
-                  {publishing ? "发布中" : "发布测试"}
+                  {publishing ? '发布中' : '发布测试'}
                 </Button>
               </CardContent>
             </Card>
@@ -685,9 +718,7 @@ export default function TeacherToolsPage() {
                 <CardDescription>学生提交后成绩自动计入测试分析</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                {stageTests.isLoading && (
-                  <p className="text-sm text-muted-foreground">加载中…</p>
-                )}
+                {stageTests.isLoading && <p className="text-sm text-muted-foreground">加载中…</p>}
                 {!stageTests.isLoading && stageTests.tests.length === 0 && (
                   <div className="flex h-32 items-center justify-center rounded-lg border-2 border-dashed text-sm text-muted-foreground">
                     尚未发布任何阶段测试
@@ -717,7 +748,7 @@ export default function TeacherToolsPage() {
                           )}
                         </div>
                         <p className="mt-2 text-xs text-muted-foreground">
-                          发布于 {new Date(t.createdAt).toLocaleString("zh-CN")}
+                          发布于 {new Date(t.createdAt).toLocaleString('zh-CN')}
                         </p>
                       </div>
                       <Button
@@ -756,7 +787,9 @@ export default function TeacherToolsPage() {
                   className="flex flex-col gap-4 rounded-lg border border-rose-200/50 bg-rose-50/30 p-4 lg:flex-row lg:items-center"
                 >
                   <Avatar className="h-10 w-10">
-                    <AvatarFallback className="bg-rose-100 text-rose-600">{student.name.charAt(0)}</AvatarFallback>
+                    <AvatarFallback className="bg-rose-100 text-rose-600">
+                      {student.name.charAt(0)}
+                    </AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -768,7 +801,9 @@ export default function TeacherToolsPage() {
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground">学习进度</span>
                         <Progress value={student.progress} className="w-24" />
-                        <span className="text-sm font-medium text-rose-600">{student.progress}%</span>
+                        <span className="text-sm font-medium text-rose-600">
+                          {student.progress}%
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -800,7 +835,10 @@ export default function TeacherToolsPage() {
                 </div>
               )}
               {suggestions.map((suggestion) => (
-                <div key={`${suggestion.tag}-${suggestion.title}`} className="rounded-lg border bg-card p-4">
+                <div
+                  key={`${suggestion.tag}-${suggestion.title}`}
+                  className="rounded-lg border bg-card p-4"
+                >
                   <div className="mb-2 flex items-center gap-2">
                     <Badge variant="outline">{suggestion.tag}</Badge>
                     <h4 className="font-semibold">{suggestion.title}</h4>
@@ -831,7 +869,10 @@ export default function TeacherToolsPage() {
                 {exportCards.map((item, index) => {
                   const Icon = [FileBarChart, ClipboardCheck, BarChart3][index % 3];
                   return (
-                    <div key={item.title} className="rounded-lg border p-4 transition-shadow hover:shadow-sm">
+                    <div
+                      key={item.title}
+                      className="rounded-lg border p-4 transition-shadow hover:shadow-sm"
+                    >
                       <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                         <Icon className="h-5 w-5 text-primary" />
                       </div>

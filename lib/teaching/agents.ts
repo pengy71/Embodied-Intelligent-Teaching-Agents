@@ -4,7 +4,11 @@ import { nanoid } from 'nanoid';
 import { callLLM } from '@/lib/ai/llm';
 import { resolveModel } from '@/lib/server/resolve-model';
 
-import { getStudentAssistantPreferences, getLatestTeachingAgentRun, saveTeachingAgentRun } from './db';
+import {
+  getStudentAssistantPreferences,
+  getLatestTeachingAgentRun,
+  saveTeachingAgentRun,
+} from './db';
 import { buildTeachingStyleProfile, defaultStudentAssistantPreferences } from './student-assistant';
 import { buildStudentPortraitScore, buildStudentSnapshot, buildTeacherSnapshot } from './metrics';
 import type {
@@ -119,11 +123,9 @@ export async function runStudentGuidanceAgent(params: {
     (await getStudentAssistantPreferences(params.courseId, params.studentId)) ??
     defaultStudentAssistantPreferences;
   const teachingStyleProfile = buildTeachingStyleProfile(preferences);
-  const {
-    model,
-    modelString,
-    thinkingConfig,
-  } = await resolveModel({ stage: 'teaching-student-guidance' });
+  const { model, modelString, thinkingConfig } = await resolveModel({
+    stage: 'teaching-student-guidance',
+  });
 
   const promptInput = {
     student: snapshot.student,
@@ -233,7 +235,10 @@ ${JSON.stringify(promptInput, null, 2)}
       ),
       improvements: requireString(
         parsed.report?.improvements,
-        `建议重点突破 ${fallbackWeakPoints.slice(0, 3).map((item) => item.title).join('、')}。`,
+        `建议重点突破 ${fallbackWeakPoints
+          .slice(0, 3)
+          .map((item) => item.title)
+          .join('、')}。`,
       ),
       nextWeekGoal: requireString(
         parsed.report?.nextWeekGoal,
@@ -241,7 +246,10 @@ ${JSON.stringify(promptInput, null, 2)}
       ),
       investmentLabel: requireString(parsed.report?.investmentLabel, '稳定投入'),
       masteryLabel: requireString(parsed.report?.masteryLabel, '稳步提升'),
-      overallComment: requireString(parsed.report?.overallComment, '保持节奏，优先处理薄弱依赖链。'),
+      overallComment: requireString(
+        parsed.report?.overallComment,
+        '保持节奏，优先处理薄弱依赖链。',
+      ),
     },
     adaptationEvents: requireArray(parsed.adaptationEvents, [
       {
@@ -289,11 +297,9 @@ export async function runTeacherAnalyticsAgent(params: {
   }
 
   const snapshot = await buildTeacherSnapshot(params.courseId);
-  const {
-    model,
-    modelString,
-    thinkingConfig,
-  } = await resolveModel({ stage: 'teaching-teacher-analytics' });
+  const { model, modelString, thinkingConfig } = await resolveModel({
+    stage: 'teaching-teacher-analytics',
+  });
 
   const promptInput = {
     summary: snapshot.summary,
@@ -360,7 +366,11 @@ ${JSON.stringify(promptInput, null, 2)}
       },
     ]),
     exportCards: [
-      { type: 'grade-sheet', title: '完整成绩单', desc: '包含学习进度、掌握率、测试成绩等全部数据' },
+      {
+        type: 'grade-sheet',
+        title: '完整成绩单',
+        desc: '包含学习进度、掌握率、测试成绩等全部数据',
+      },
       { type: 'test-report', title: '阶段测试报告', desc: '本次阶段测试的详细成绩与错题分析' },
       { type: 'behavior-stats', title: '学习行为统计', desc: '学习时长、问答记录、练习完成情况' },
     ],

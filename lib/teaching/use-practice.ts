@@ -204,7 +204,6 @@ export function useWeakPoints(): UseWeakPointsResult {
   return { weakPoints, isLoading, error, refresh };
 }
 
-
 export interface UseWrongQuestionsResult {
   wrongQuestions: GradedQuestion[];
   isLoading: boolean;

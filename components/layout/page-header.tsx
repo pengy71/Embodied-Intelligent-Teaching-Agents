@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { cn } from "@/lib/utils";
+import { cn } from '@/lib/utils';
 
 interface PageHeaderProps {
   title: string;
@@ -11,7 +11,12 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, description, children, className }: PageHeaderProps) {
   return (
-    <div className={cn("mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between", className)}>
+    <div
+      className={cn(
+        'mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between',
+        className,
+      )}
+    >
       <div className="min-w-0">
         <h1 className="text-2xl font-bold tracking-tight text-foreground">{title}</h1>
         {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}

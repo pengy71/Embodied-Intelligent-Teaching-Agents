@@ -30,8 +30,7 @@ const SESSION_TTL = 7 * 24 * 60 * 60;
  * MUST NOT be used in production (NODE_ENV === 'production' still throws).
  * Stable across Edge & Node runtimes so signed tokens verify correctly.
  */
-const DEV_FALLBACK_SECRET =
-  'dev-only-insecure-secret-please-set-AUTH_SECRET-in-.env.local';
+const DEV_FALLBACK_SECRET = 'dev-only-insecure-secret-please-set-AUTH_SECRET-in-.env.local';
 
 function getAuthSecret(): string {
   const secret = process.env.AUTH_SECRET;
@@ -104,7 +103,9 @@ export async function createSessionToken(user: Omit<SessionUser, 'exp'>): Promis
  * Verify a session token and return the decoded user, or null if invalid/expired.
  * Never throws.
  */
-export async function verifySessionToken(token: string | undefined | null): Promise<SessionUser | null> {
+export async function verifySessionToken(
+  token: string | undefined | null,
+): Promise<SessionUser | null> {
   if (!token) return null;
   const dot = token.indexOf('.');
   if (dot === -1) return null;

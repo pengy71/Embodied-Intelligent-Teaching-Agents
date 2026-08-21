@@ -246,7 +246,6 @@ export interface QAResult {
   relatedPoints: Array<{ id: string; title: string; summary?: string; chapter?: string }>;
 }
 
-
 // === 习题评测智能体相关类型 ===
 
 export type PracticeQuestionType = 'choice' | 'fill' | 'short' | 'case' | 'algorithm';
@@ -312,7 +311,12 @@ export interface PracticeReport {
   score: number;
   accuracy: number;
   byType: Array<{ type: PracticeQuestionType; total: number; correct: number; accuracy: number }>;
-  byDifficulty: Array<{ difficulty: PracticeDifficulty; total: number; correct: number; accuracy: number }>;
+  byDifficulty: Array<{
+    difficulty: PracticeDifficulty;
+    total: number;
+    correct: number;
+    accuracy: number;
+  }>;
   weakPoints: Array<{ pointId: string; title: string; chapter: string; wrongCount: number }>;
   recommendations: string[];
 }
@@ -322,7 +326,6 @@ export interface PracticeRound {
   gradedQuestions: GradedQuestion[];
   report: PracticeReport;
 }
-
 
 // === 阶段测试与薄弱知识点 ===
 

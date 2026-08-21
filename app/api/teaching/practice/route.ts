@@ -15,7 +15,11 @@ const VALID_MODES = new Set<PracticeMode>(['adaptive', 'chapter', 'special', 'te
 
 export async function POST(req: NextRequest) {
   if (!isTeachingStoreConfigured()) {
-    return apiError('INVALID_REQUEST', 503, 'Teaching knowledge base not configured: please set DATABASE_URL');
+    return apiError(
+      'INVALID_REQUEST',
+      503,
+      'Teaching knowledge base not configured: please set DATABASE_URL',
+    );
   }
   const user = await getSessionUser();
   if (!user) {
@@ -56,6 +60,10 @@ export async function POST(req: NextRequest) {
       degraded: result.degraded,
     });
   } catch (err) {
-    return apiError('INTERNAL_ERROR', 500, err instanceof Error ? err.message : 'Failed to generate practice');
+    return apiError(
+      'INTERNAL_ERROR',
+      500,
+      err instanceof Error ? err.message : 'Failed to generate practice',
+    );
   }
 }

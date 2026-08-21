@@ -1,12 +1,24 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
-import { GraduationCap, User, LayoutDashboard, BookOpen, Wrench, Bot, Library, MessageSquare, ClipboardList, LogOut, Brain } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { useSession } from "@/lib/auth/use-session";
-import { useRouter } from "next/navigation";
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { cn } from '@/lib/utils';
+import {
+  GraduationCap,
+  User,
+  LayoutDashboard,
+  BookOpen,
+  Wrench,
+  Bot,
+  Library,
+  MessageSquare,
+  ClipboardList,
+  LogOut,
+  Brain,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useSession } from '@/lib/auth/use-session';
+import { useRouter } from 'next/navigation';
 
 interface NavItem {
   title: string;
@@ -15,34 +27,34 @@ interface NavItem {
 }
 
 interface SidebarProps {
-  role: "teacher" | "student";
+  role: 'teacher' | 'student';
   roleLabel: string;
   userName: string;
   userDesc: string;
 }
 
 const teacherNavItems: NavItem[] = [
-  { title: "课程概览", href: "/teaching/teacher", icon: LayoutDashboard },
-  { title: "课程建设", href: "/teaching/teacher/course", icon: BookOpen },
-  { title: "教学工具", href: "/teaching/teacher/tools", icon: Wrench },
+  { title: '课程概览', href: '/teaching/teacher', icon: LayoutDashboard },
+  { title: '课程建设', href: '/teaching/teacher/course', icon: BookOpen },
+  { title: '教学工具', href: '/teaching/teacher/tools', icon: Wrench },
 ];
 
 const studentNavItems: NavItem[] = [
-  { title: "AI学习助手", href: "/teaching/student", icon: Bot },
-  { title: "学习资源", href: "/teaching/student/resources", icon: Library },
-  { title: "答疑中心", href: "/teaching/student/qa", icon: MessageSquare },
-  { title: "练习测试", href: "/teaching/student/practice", icon: ClipboardList },
+  { title: 'AI学习助手', href: '/teaching/student', icon: Bot },
+  { title: '学习资源', href: '/teaching/student/resources', icon: Library },
+  { title: '答疑中心', href: '/teaching/student/qa', icon: MessageSquare },
+  { title: '练习测试', href: '/teaching/student/practice', icon: ClipboardList },
 ];
 
 export function TeachingSidebar({ role, roleLabel, userName, userDesc }: SidebarProps) {
   const pathname = usePathname();
-  const navItems = role === "teacher" ? teacherNavItems : studentNavItems;
-  const Icon = role === "teacher" ? GraduationCap : User;
+  const navItems = role === 'teacher' ? teacherNavItems : studentNavItems;
+  const Icon = role === 'teacher' ? GraduationCap : User;
   const { logout } = useSession();
   const router = useRouter();
   const handleLogout = async () => {
     await logout();
-    router.replace("/login");
+    router.replace('/login');
   };
 
   return (
@@ -99,8 +111,11 @@ export function TeachingSidebar({ role, roleLabel, userName, userDesc }: Sidebar
               <Button
                 key={item.href}
                 asChild
-                variant={isActive ? "secondary" : "ghost"}
-                className={cn("w-full justify-start gap-3", isActive && "bg-primary/10 text-primary hover:bg-primary/15")}
+                variant={isActive ? 'secondary' : 'ghost'}
+                className={cn(
+                  'w-full justify-start gap-3',
+                  isActive && 'bg-primary/10 text-primary hover:bg-primary/15',
+                )}
               >
                 <Link href={item.href}>
                   <item.icon className="h-4 w-4" />
@@ -119,7 +134,11 @@ export function TeachingSidebar({ role, roleLabel, userName, userDesc }: Sidebar
               返回教学首页
             </Link>
           </Button>
-          <Button variant="ghost" className="w-full justify-start gap-3 text-muted-foreground" onClick={handleLogout}>
+          <Button
+            variant="ghost"
+            className="w-full justify-start gap-3 text-muted-foreground"
+            onClick={handleLogout}
+          >
             <LogOut className="h-4 w-4" />
             退出登录
           </Button>
@@ -136,10 +155,10 @@ export function TeachingSidebar({ role, roleLabel, userName, userDesc }: Sidebar
             <Link
               key={item.href}
               href={item.href}
-              aria-current={isActive ? "page" : undefined}
+              aria-current={isActive ? 'page' : undefined}
               className={cn(
-                "flex min-w-0 flex-col items-center justify-center gap-1 px-1 text-[11px] text-muted-foreground transition-colors",
-                isActive && "text-primary",
+                'flex min-w-0 flex-col items-center justify-center gap-1 px-1 text-[11px] text-muted-foreground transition-colors',
+                isActive && 'text-primary',
               )}
             >
               <item.icon className="h-5 w-5" />

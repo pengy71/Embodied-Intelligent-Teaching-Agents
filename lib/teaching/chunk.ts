@@ -29,10 +29,7 @@ const DEFAULTS: Required<ChunkOptions> = {
  * 每个 segment 独立切分（不跨页合并），保证 page 信息准确。
  * 过短的尾块（< minChunkSize）会被合并到前一块。
  */
-export function chunkSegments(
-  segments: TextSegment[],
-  opts?: ChunkOptions,
-): TextChunk[] {
+export function chunkSegments(segments: TextSegment[], opts?: ChunkOptions): TextChunk[] {
   const { chunkSize, overlap, minChunkSize } = { ...DEFAULTS, ...opts };
   if (segments.length === 0) return [];
 

@@ -9,7 +9,11 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   if (!isTeachingStoreConfigured()) {
-    return apiError('INVALID_REQUEST', 503, 'Teaching knowledge base not configured: please set DATABASE_URL');
+    return apiError(
+      'INVALID_REQUEST',
+      503,
+      'Teaching knowledge base not configured: please set DATABASE_URL',
+    );
   }
   const user = await getSessionUser();
   if (!user) {
@@ -22,6 +26,10 @@ export async function GET() {
     const weakPoints = await getStudentWeakPoints(DEFAULT_TEACHING_COURSE_ID, user.studentId);
     return apiSuccess({ weakPoints });
   } catch (err) {
-    return apiError('INTERNAL_ERROR', 500, err instanceof Error ? err.message : 'Failed to load weak points');
+    return apiError(
+      'INTERNAL_ERROR',
+      500,
+      err instanceof Error ? err.message : 'Failed to load weak points',
+    );
   }
 }

@@ -20,10 +20,7 @@ const log = createLogger('TeachingRAG');
 const DEFAULT_COURSE_ID = 'default';
 
 /** 从知识点 ID 集合提取图谱关联（前置/关联知识点）。 */
-function expandGraph(
-  doc: KnowledgeDoc,
-  pointIds: string[],
-): RagContext['relatedPoints'] {
+function expandGraph(doc: KnowledgeDoc, pointIds: string[]): RagContext['relatedPoints'] {
   const result: RagContext['relatedPoints'] = [];
   const seen = new Set<string>();
 
@@ -110,11 +107,7 @@ export async function retrieveContext(
 
   // 4. 收集命中的知识点 ID，做图谱扩展
   const hitPointIds = [
-    ...new Set(
-      results
-        .map((r) => r.pointId)
-        .filter((id): id is string => id !== null),
-    ),
+    ...new Set(results.map((r) => r.pointId).filter((id): id is string => id !== null)),
   ];
 
   const relatedPoints = expandGraph(doc, hitPointIds);
@@ -132,10 +125,7 @@ export async function retrieveContext(
  * 降级检索：关键词匹配知识点（无向量）。
  * 复用原 QA 路由的关键词匹配逻辑，但返回 RagContext 结构。
  */
-async function retrieveByKeywords(
-  question: string,
-  doc: KnowledgeDoc,
-): Promise<RagContext> {
+async function retrieveByKeywords(question: string, doc: KnowledgeDoc): Promise<RagContext> {
   const allPoints = getAllPoints(doc);
   const questionLower = question.toLowerCase();
   const keywords = extractKeywords(questionLower);
@@ -183,18 +173,59 @@ async function retrieveByKeywords(
 
 function extractKeywords(text: string): string[] {
   const commonKeywords = [
-    'RRT', 'PRM', 'PPO', 'SAC', 'DDPM', 'diffusion', 'world model',
-    'reinforcement learning', 'imitation learning', 'motion planning', 'force control',
-    'Kalman filter', 'point cloud', 'ICP', 'YOLO', 'semantic segmentation',
-    'Lie group', 'Lie algebra', 'SO(3)', 'SE(3)', 'Jacobian',
-    'inverse kinematics', 'forward kinematics', 'dynamics', 'Lagrange',
-    'trajectory optimization', 'grasp planning', 'tactile sensing',
-    'Sim-to-Real', 'domain randomization', 'behavioral cloning',
-    'Flow Matching', 'Score model', 'normalizing flow',
-    'HTN', 'hierarchical task network', 'task decomposition',
-    'CPG', 'DMP', 'Tegotae', '感知', '规划', '控制', '协同',
-    '强化学习', '模仿学习', '运动规划', '力控', '世界模型',
-    '扩散模型', '归一化流', '机器人', '具身智能',
+    'RRT',
+    'PRM',
+    'PPO',
+    'SAC',
+    'DDPM',
+    'diffusion',
+    'world model',
+    'reinforcement learning',
+    'imitation learning',
+    'motion planning',
+    'force control',
+    'Kalman filter',
+    'point cloud',
+    'ICP',
+    'YOLO',
+    'semantic segmentation',
+    'Lie group',
+    'Lie algebra',
+    'SO(3)',
+    'SE(3)',
+    'Jacobian',
+    'inverse kinematics',
+    'forward kinematics',
+    'dynamics',
+    'Lagrange',
+    'trajectory optimization',
+    'grasp planning',
+    'tactile sensing',
+    'Sim-to-Real',
+    'domain randomization',
+    'behavioral cloning',
+    'Flow Matching',
+    'Score model',
+    'normalizing flow',
+    'HTN',
+    'hierarchical task network',
+    'task decomposition',
+    'CPG',
+    'DMP',
+    'Tegotae',
+    '感知',
+    '规划',
+    '控制',
+    '协同',
+    '强化学习',
+    '模仿学习',
+    '运动规划',
+    '力控',
+    '世界模型',
+    '扩散模型',
+    '归一化流',
+    '机器人',
+    '具身智能',
   ];
 
   const found: string[] = [];

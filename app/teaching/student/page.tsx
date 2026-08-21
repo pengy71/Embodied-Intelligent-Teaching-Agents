@@ -1,18 +1,24 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { PageHeader } from "@/components/layout/page-header";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Progress } from "@/components/ui/progress";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { personalStats, aiTemplates, learningPath } from "@/lib/mock-data";
+import { useEffect, useState } from 'react';
+import { PageHeader } from '@/components/layout/page-header';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Progress } from '@/components/ui/progress';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { personalStats, aiTemplates, learningPath } from '@/lib/mock-data';
 import {
   STUDENT_ASSISTANT_STORAGE_KEY,
   defaultStudentAssistantPreferences,
@@ -20,10 +26,10 @@ import {
   getPaceLabel,
   normalizeStudentAssistantPreferences,
   type StudentAssistantPreferences,
-} from "@/lib/teaching/student-assistant";
-import type { StudentGuidanceResult } from "@/lib/teaching/types";
-import Link from "next/link";
-import { toast } from "sonner";
+} from '@/lib/teaching/student-assistant';
+import type { StudentGuidanceResult } from '@/lib/teaching/types';
+import Link from 'next/link';
+import { toast } from 'sonner';
 import {
   Calendar,
   Clock,
@@ -47,7 +53,7 @@ import {
   ArrowRight,
   Download,
   Save,
-} from "lucide-react";
+} from 'lucide-react';
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   GraduationCap,
@@ -57,24 +63,27 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
 };
 
 export default function StudentAssistantPage() {
-  const [activeTab, setActiveTab] = useState("today");
+  const [activeTab, setActiveTab] = useState('today');
   const [guidance, setGuidance] = useState<StudentGuidanceResult | null>(null);
   const [isLoadingGuidance, setIsLoadingGuidance] = useState(true);
   const [guidanceError, setGuidanceError] = useState<string | null>(null);
   const [preferences, setPreferences] = useState<StudentAssistantPreferences>(() => {
-    if (typeof window === "undefined") return defaultStudentAssistantPreferences;
+    if (typeof window === 'undefined') return defaultStudentAssistantPreferences;
 
     try {
       const saved = window.localStorage.getItem(STUDENT_ASSISTANT_STORAGE_KEY);
-      return saved ? normalizeStudentAssistantPreferences(JSON.parse(saved)) : defaultStudentAssistantPreferences;
+      return saved
+        ? normalizeStudentAssistantPreferences(JSON.parse(saved))
+        : defaultStudentAssistantPreferences;
     } catch {
       return defaultStudentAssistantPreferences;
     }
   });
   const [completedTaskIds, setCompletedTaskIds] = useState(
-    () => new Set(personalStats.todayPlan.filter((task) => task.done).map((task) => String(task.id))),
+    () =>
+      new Set(personalStats.todayPlan.filter((task) => task.done).map((task) => String(task.id))),
   );
-  const [lastUpdated, setLastUpdated] = useState("加载中");
+  const [lastUpdated, setLastUpdated] = useState('加载中');
   const [isSavingPreferences, setIsSavingPreferences] = useState(false);
 
   const stats = guidance?.stats ?? {
@@ -85,43 +94,46 @@ export default function StudentAssistantPage() {
     totalPoints: personalStats.totalPoints,
     overallProgress: Math.round((personalStats.masteredPoints / personalStats.totalPoints) * 100),
   };
-  const todayPlan = guidance?.todayPlan ?? personalStats.todayPlan.map((task) => ({
-    ...task,
-    id: String(task.id),
-    reason: "",
-    targetNodeId: "",
-  }));
+  const todayPlan =
+    guidance?.todayPlan ??
+    personalStats.todayPlan.map((task) => ({
+      ...task,
+      id: String(task.id),
+      reason: '',
+      targetNodeId: '',
+    }));
   const weakPoints = guidance?.weakPoints.map((point) => point.title) ?? personalStats.weakPoints;
   const path = guidance?.path ?? learningPath;
   const recommendedLearnPointId =
-    todayPlan.find((task) => !task.done && task.type === "新知" && task.targetNodeId)?.targetNodeId ??
+    todayPlan.find((task) => !task.done && task.type === '新知' && task.targetNodeId)
+      ?.targetNodeId ??
     todayPlan.find((task) => !task.done && task.targetNodeId)?.targetNodeId ??
-    "";
+    '';
   const todayLearnHref = recommendedLearnPointId
     ? `/teaching/student/learn?point=${encodeURIComponent(recommendedLearnPointId)}`
-    : "/teaching/student/learn";
+    : '/teaching/student/learn';
 
   // 进入页面只读取数据库已存储的导学结果，不会调用大模型
   const loadStoredGuidance = async () => {
     setIsLoadingGuidance(true);
     try {
-      const response = await fetch("/api/teaching/student-guidance", { method: "GET" });
+      const response = await fetch('/api/teaching/student-guidance', { method: 'GET' });
       const data = await response.json();
       if (!response.ok || !data.success) {
-        throw new Error(data.error || "读取导学数据失败");
+        throw new Error(data.error || '读取导学数据失败');
       }
       const result = (data.result as StudentGuidanceResult | null) ?? null;
       if (result) {
         setGuidance(result);
-        setLastUpdated(new Date(result.generatedAt).toLocaleString("zh-CN"));
+        setLastUpdated(new Date(result.generatedAt).toLocaleString('zh-CN'));
         setCompletedTaskIds(
           new Set(result.todayPlan.filter((task) => task.done).map((task) => task.id)),
         );
       } else {
-        setLastUpdated("尚未生成");
+        setLastUpdated('尚未生成');
       }
     } catch {
-      setLastUpdated("尚未生成");
+      setLastUpdated('尚未生成');
     } finally {
       setIsLoadingGuidance(false);
     }
@@ -132,24 +144,24 @@ export default function StudentAssistantPage() {
     setIsLoadingGuidance(true);
     setGuidanceError(null);
     try {
-      const response = await fetch("/api/teaching/student-guidance", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
+      const response = await fetch('/api/teaching/student-guidance', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ force: true }),
       });
       const data = await response.json();
       if (!response.ok || !data.success) {
-        throw new Error(data.error || "个性导学 agent 调用失败");
+        throw new Error(data.error || '个性导学 agent 调用失败');
       }
       const result = data.result as StudentGuidanceResult;
       setGuidance(result);
-      setLastUpdated(new Date(result.generatedAt).toLocaleString("zh-CN"));
+      setLastUpdated(new Date(result.generatedAt).toLocaleString('zh-CN'));
       setCompletedTaskIds(
         new Set(result.todayPlan.filter((task) => task.done).map((task) => task.id)),
       );
-      toast.success("个性导学 agent 已更新");
+      toast.success('个性导学 agent 已更新');
     } catch (error) {
-      const message = error instanceof Error ? error.message : "个性导学 agent 调用失败";
+      const message = error instanceof Error ? error.message : '个性导学 agent 调用失败';
       setGuidanceError(message);
       toast.error(message);
     } finally {
@@ -164,7 +176,7 @@ export default function StudentAssistantPage() {
   // 从服务端读取该学生已保存的个性化偏好（服务端为准，失败时保留本地缓存）
   const loadServerPreferences = async () => {
     try {
-      const response = await fetch("/api/teaching/student-preferences", { method: "GET" });
+      const response = await fetch('/api/teaching/student-preferences', { method: 'GET' });
       const data = await response.json();
       if (response.ok && data.success && data.preferences) {
         setPreferences(normalizeStudentAssistantPreferences(data.preferences));
@@ -178,7 +190,10 @@ export default function StudentAssistantPage() {
     void loadServerPreferences();
   }, []);
 
-  const updatePreference = <K extends keyof StudentAssistantPreferences>(key: K, value: StudentAssistantPreferences[K]) => {
+  const updatePreference = <K extends keyof StudentAssistantPreferences>(
+    key: K,
+    value: StudentAssistantPreferences[K],
+  ) => {
     setPreferences((current) => ({ ...current, [key]: value }));
   };
 
@@ -189,7 +204,7 @@ export default function StudentAssistantPage() {
       else next.delete(taskId);
       return next;
     });
-    toast.success(checked ? "任务已标记为完成" : "任务已恢复为待完成");
+    toast.success(checked ? '任务已标记为完成' : '任务已恢复为待完成');
   };
 
   const refreshRecommendation = () => {
@@ -199,24 +214,24 @@ export default function StudentAssistantPage() {
   const savePreferences = async () => {
     setIsSavingPreferences(true);
     try {
-      const response = await fetch("/api/teaching/student-preferences", {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
+      const response = await fetch('/api/teaching/student-preferences', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ preferences }),
       });
       const data = await response.json();
       if (!response.ok || !data.success) {
-        throw new Error(data.error || "保存失败");
+        throw new Error(data.error || '保存失败');
       }
       // 服务端保存成功后同步本地缓存
       window.localStorage.setItem(STUDENT_ASSISTANT_STORAGE_KEY, JSON.stringify(data.preferences));
-      toast.success("个性化设置已保存，正在按新风格重新生成导学建议");
+      toast.success('个性化设置已保存，正在按新风格重新生成导学建议');
       // 立即让 AI 以新风格重新生成导学结果
       if (guidance) {
         await regenerateGuidance();
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : "设置保存失败，请检查浏览器存储权限";
+      const message = error instanceof Error ? error.message : '设置保存失败，请检查浏览器存储权限';
       toast.error(message);
     } finally {
       setIsSavingPreferences(false);
@@ -226,9 +241,14 @@ export default function StudentAssistantPage() {
   return (
     <div>
       <PageHeader title="AI学习助手" description="AI 结合学习进度和知识掌握情况，智能推荐学习内容">
-        <Button variant="outline" size="sm" onClick={refreshRecommendation} disabled={isLoadingGuidance}>
-          <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${isLoadingGuidance ? "animate-spin" : ""}`} />
-          {isLoadingGuidance ? "生成中" : "刷新"}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={refreshRecommendation}
+          disabled={isLoadingGuidance}
+        >
+          <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${isLoadingGuidance ? 'animate-spin' : ''}`} />
+          {isLoadingGuidance ? '生成中' : '刷新'}
         </Button>
       </PageHeader>
 
@@ -310,13 +330,16 @@ export default function StudentAssistantPage() {
                   </div>
                   <div>
                     <CardTitle className="text-base">AI 导学寄语</CardTitle>
-                    <CardDescription>根据你的学习画像和知识图谱智能生成 · {lastUpdated}</CardDescription>
+                    <CardDescription>
+                      根据你的学习画像和知识图谱智能生成 · {lastUpdated}
+                    </CardDescription>
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
                 <p className="text-sm leading-relaxed text-foreground">
-                  {guidance?.guidanceMessage ?? "正在结合学习画像、知识图谱和数据库学习记录生成导学建议。"}
+                  {guidance?.guidanceMessage ??
+                    '正在结合学习画像、知识图谱和数据库学习记录生成导学建议。'}
                 </p>
                 {guidance?.portrait && (
                   <div className="mt-3 rounded-md border bg-muted/30 p-3">
@@ -386,25 +409,38 @@ export default function StudentAssistantPage() {
               <div className="space-y-3">
                 {todayPlan.map((task, idx) => {
                   const isDone = completedTaskIds.has(String(task.id));
-                  const taskHref = task.type === "新知" ? "/teaching/student/resources" : "/teaching/student/practice";
+                  const taskHref =
+                    task.type === '新知'
+                      ? '/teaching/student/resources'
+                      : '/teaching/student/practice';
 
                   return (
                     <div
                       key={task.id}
                       className={`flex items-center gap-4 rounded-lg border p-4 transition-colors ${
-                        isDone ? "border-success/20 bg-success/5" : "hover:border-primary/30"
+                        isDone ? 'border-success/20 bg-success/5' : 'hover:border-primary/30'
                       }`}
                     >
                       <Checkbox
                         checked={isDone}
                         onCheckedChange={(checked) => toggleTask(String(task.id), checked === true)}
-                        aria-label={`${isDone ? "恢复" : "完成"}${task.title}`}
+                        aria-label={`${isDone ? '恢复' : '完成'}${task.title}`}
                       />
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <span className={`text-sm font-medium ${isDone ? "line-through text-muted-foreground" : ""}`}>{task.title}</span>
+                          <span
+                            className={`text-sm font-medium ${isDone ? 'line-through text-muted-foreground' : ''}`}
+                          >
+                            {task.title}
+                          </span>
                           <Badge
-                            variant={task.type === "巩固" ? "secondary" : task.type === "新知" ? "default" : "outline"}
+                            variant={
+                              task.type === '巩固'
+                                ? 'secondary'
+                                : task.type === '新知'
+                                  ? 'default'
+                                  : 'outline'
+                            }
                             className="text-xs"
                           >
                             {task.type}
@@ -423,7 +459,7 @@ export default function StudentAssistantPage() {
                       </div>
                       {!isDone && (
                         <Button asChild size="sm">
-                          <Link href={taskHref}>{idx === 1 ? "开始学习" : "开始练习"}</Link>
+                          <Link href={taskHref}>{idx === 1 ? '开始学习' : '开始练习'}</Link>
                         </Button>
                       )}
                     </div>
@@ -494,7 +530,9 @@ export default function StudentAssistantPage() {
                       <Map className="h-4 w-4 text-primary" />
                       AI 学习路径
                     </CardTitle>
-                    <CardDescription>根据你的学习画像和知识图谱动态规划，随学习进展持续更新</CardDescription>
+                    <CardDescription>
+                      根据你的学习画像和知识图谱动态规划，随学习进展持续更新
+                    </CardDescription>
                   </div>
                   <Button variant="outline" size="sm" onClick={refreshRecommendation}>
                     <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
@@ -509,9 +547,9 @@ export default function StudentAssistantPage() {
 
                   <div className="space-y-6">
                     {path.phases.map((phase, idx) => {
-                      const isCompleted = phase.status === "completed";
-                      const isInProgress = phase.status === "in_progress";
-                      const isNotStarted = phase.status === "not_started";
+                      const isCompleted = phase.status === 'completed';
+                      const isInProgress = phase.status === 'in_progress';
+                      const isNotStarted = phase.status === 'not_started';
 
                       return (
                         <div key={phase.id} className="relative">
@@ -520,10 +558,10 @@ export default function StudentAssistantPage() {
                             <div
                               className={`relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 ${
                                 isCompleted
-                                  ? "border-success bg-success text-white"
+                                  ? 'border-success bg-success text-white'
                                   : isInProgress
-                                    ? "border-primary bg-primary/10"
-                                    : "border-muted-foreground/30 bg-muted"
+                                    ? 'border-primary bg-primary/10'
+                                    : 'border-muted-foreground/30 bg-muted'
                               }`}
                             >
                               {isCompleted ? (
@@ -531,13 +569,21 @@ export default function StudentAssistantPage() {
                               ) : isInProgress ? (
                                 <span className="text-sm font-bold text-primary">{idx + 1}</span>
                               ) : (
-                                <span className="text-sm font-medium text-muted-foreground">{idx + 1}</span>
+                                <span className="text-sm font-medium text-muted-foreground">
+                                  {idx + 1}
+                                </span>
                               )}
                             </div>
 
-                            <div className={`flex-1 rounded-lg border p-4 ${isInProgress ? "border-primary/30 bg-primary/5" : ""}`}>
+                            <div
+                              className={`flex-1 rounded-lg border p-4 ${isInProgress ? 'border-primary/30 bg-primary/5' : ''}`}
+                            >
                               <div className="mb-2 flex items-center justify-between">
-                                <h4 className={`text-sm font-semibold ${isNotStarted ? "text-muted-foreground" : ""}`}>{phase.title}</h4>
+                                <h4
+                                  className={`text-sm font-semibold ${isNotStarted ? 'text-muted-foreground' : ''}`}
+                                >
+                                  {phase.title}
+                                </h4>
                                 <div className="flex items-center gap-2">
                                   {isCompleted && (
                                     <Badge variant="default" className="text-xs">
@@ -564,10 +610,10 @@ export default function StudentAssistantPage() {
                                   <span
                                     className={`font-medium ${
                                       phase.progress === 100
-                                        ? "text-success"
+                                        ? 'text-success'
                                         : phase.progress > 0
-                                          ? "text-primary"
-                                          : "text-muted-foreground"
+                                          ? 'text-primary'
+                                          : 'text-muted-foreground'
                                     }`}
                                   >
                                     {phase.progress}%
@@ -611,34 +657,44 @@ export default function StudentAssistantPage() {
                                   <div
                                     key={node.name}
                                     className={`flex items-center gap-2.5 rounded-md border px-3 py-2 text-sm ${
-                                      node.status === "completed"
-                                        ? "border-success/20 bg-success/5"
-                                        : node.status === "in_progress"
-                                          ? "border-primary/20 bg-primary/5"
-                                          : node.status === "learning"
-                                            ? "border-amber-200 bg-amber-50/50"
-                                            : "border-border"
+                                      node.status === 'completed'
+                                        ? 'border-success/20 bg-success/5'
+                                        : node.status === 'in_progress'
+                                          ? 'border-primary/20 bg-primary/5'
+                                          : node.status === 'learning'
+                                            ? 'border-amber-200 bg-amber-50/50'
+                                            : 'border-border'
                                     }`}
                                   >
-                                    {node.status === "completed" && <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />}
-                                    {node.status === "in_progress" && <Circle className="h-4 w-4 shrink-0 text-primary" />}
-                                    {node.status === "learning" && <Circle className="h-4 w-4 shrink-0 text-amber-500" />}
-                                    {node.status === "not_started" && <Circle className="h-4 w-4 shrink-0 text-muted-foreground/40" />}
-                                    <span className={`flex-1 ${node.status === "not_started" ? "text-muted-foreground" : ""}`}>
+                                    {node.status === 'completed' && (
+                                      <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
+                                    )}
+                                    {node.status === 'in_progress' && (
+                                      <Circle className="h-4 w-4 shrink-0 text-primary" />
+                                    )}
+                                    {node.status === 'learning' && (
+                                      <Circle className="h-4 w-4 shrink-0 text-amber-500" />
+                                    )}
+                                    {node.status === 'not_started' && (
+                                      <Circle className="h-4 w-4 shrink-0 text-muted-foreground/40" />
+                                    )}
+                                    <span
+                                      className={`flex-1 ${node.status === 'not_started' ? 'text-muted-foreground' : ''}`}
+                                    >
                                       {node.name}
                                     </span>
                                     <span
                                       className={`text-xs font-medium ${
                                         node.mastery >= 70
-                                          ? "text-success"
+                                          ? 'text-success'
                                           : node.mastery >= 40
-                                            ? "text-warning"
+                                            ? 'text-warning'
                                             : node.mastery > 0
-                                              ? "text-destructive"
-                                              : "text-muted-foreground"
+                                              ? 'text-destructive'
+                                              : 'text-muted-foreground'
                                       }`}
                                     >
-                                      {node.mastery > 0 ? `${node.mastery}%` : "—"}
+                                      {node.mastery > 0 ? `${node.mastery}%` : '—'}
                                     </span>
                                   </div>
                                 ))}
@@ -680,13 +736,21 @@ export default function StudentAssistantPage() {
                     <div key={i} className="flex items-center gap-3">
                       <div
                         className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
-                          m.achieved ? "bg-success text-white" : "bg-muted text-muted-foreground"
+                          m.achieved ? 'bg-success text-white' : 'bg-muted text-muted-foreground'
                         }`}
                       >
-                        {m.achieved ? <CheckCircle2 className="h-4 w-4" /> : <Flag className="h-3.5 w-3.5" />}
+                        {m.achieved ? (
+                          <CheckCircle2 className="h-4 w-4" />
+                        ) : (
+                          <Flag className="h-3.5 w-3.5" />
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className={`text-sm truncate ${m.achieved ? "font-medium" : "text-muted-foreground"}`}>{m.title}</p>
+                        <p
+                          className={`text-sm truncate ${m.achieved ? 'font-medium' : 'text-muted-foreground'}`}
+                        >
+                          {m.title}
+                        </p>
                         <p className="text-xs text-muted-foreground">{m.date}</p>
                       </div>
                     </div>
@@ -705,19 +769,22 @@ export default function StudentAssistantPage() {
                   <div className="rounded-lg border bg-card p-3">
                     <p className="font-medium text-foreground">优先巩固前置知识</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      第三章掌握率偏低(38%)，建议先回顾第二章“世界模型”中 Dreamer 相关内容， 这是理解任务规划的前置基础。
+                      第三章掌握率偏低(38%)，建议先回顾第二章“世界模型”中 Dreamer 相关内容，
+                      这是理解任务规划的前置基础。
                     </p>
                   </div>
                   <div className="rounded-lg border bg-card p-3">
                     <p className="font-medium text-foreground">增加练习频率</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      当前每周练习量偏少，建议将每周练习次数从 2 次提升至 4 次， 可加速薄弱知识点巩固，预计可提前 7 天完成课程。
+                      当前每周练习量偏少，建议将每周练习次数从 2 次提升至 4 次，
+                      可加速薄弱知识点巩固，预计可提前 7 天完成课程。
                     </p>
                   </div>
                   <div className="rounded-lg border bg-card p-3">
                     <p className="font-medium text-foreground">节奏调整建议</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      根据你近两周的学习速度，保持当前每日 2 小时的学习节奏， 预计可在 {path.estimatedCompletion} 前完成全部课程。
+                      根据你近两周的学习速度，保持当前每日 2 小时的学习节奏， 预计可在{' '}
+                      {path.estimatedCompletion} 前完成全部课程。
                     </p>
                   </div>
                 </CardContent>
@@ -729,7 +796,9 @@ export default function StudentAssistantPage() {
         {/* Learning Report */}
         <TabsContent value="report" className="mt-6">
           <div className="mb-4 flex items-center justify-between gap-3">
-            <p className="text-sm text-muted-foreground">报告基于最近 30 天学习、练习和问答数据生成</p>
+            <p className="text-sm text-muted-foreground">
+              报告基于最近 30 天学习、练习和问答数据生成
+            </p>
             <Button variant="outline" size="sm" onClick={() => window.print()}>
               <Download className="mr-1.5 h-3.5 w-3.5" />
               打印报告
@@ -744,7 +813,9 @@ export default function StudentAssistantPage() {
                 <div>
                   <div className="mb-1.5 flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">总体进度</span>
-                    <span className="font-medium">{Math.round((stats.masteredPoints / stats.totalPoints) * 100)}%</span>
+                    <span className="font-medium">
+                      {Math.round((stats.masteredPoints / stats.totalPoints) * 100)}%
+                    </span>
                   </div>
                   <Progress value={(stats.masteredPoints / stats.totalPoints) * 100} />
                 </div>
@@ -789,15 +860,19 @@ export default function StudentAssistantPage() {
               </CardHeader>
               <CardContent className="space-y-3">
                 {[
-                  { name: "第一章 环境感知", mastery: 75 },
-                  { name: "第二章 世界模型", mastery: 48 },
-                  { name: "第三章 任务规划", mastery: 38 },
-                  { name: "第四章 多智能体", mastery: 32 },
+                  { name: '第一章 环境感知', mastery: 75 },
+                  { name: '第二章 世界模型', mastery: 48 },
+                  { name: '第三章 任务规划', mastery: 38 },
+                  { name: '第四章 多智能体', mastery: 32 },
                 ].map((ch) => (
                   <div key={ch.name}>
                     <div className="mb-1 flex items-center justify-between text-sm">
                       <span>{ch.name}</span>
-                      <span className={`font-medium ${ch.mastery >= 60 ? "text-success" : "text-warning"}`}>{ch.mastery}%</span>
+                      <span
+                        className={`font-medium ${ch.mastery >= 60 ? 'text-success' : 'text-warning'}`}
+                      >
+                        {ch.mastery}%
+                      </span>
                     </div>
                     <Progress value={ch.mastery} />
                   </div>
@@ -833,32 +908,42 @@ export default function StudentAssistantPage() {
                   <div className="mt-4 grid gap-2 border-t pt-4 sm:grid-cols-3">
                     <div>
                       <p className="text-xs">学习投入评价</p>
-                      <p className="mt-1 font-medium text-foreground">{guidance.report.investmentLabel}</p>
+                      <p className="mt-1 font-medium text-foreground">
+                        {guidance.report.investmentLabel}
+                      </p>
                     </div>
                     <div>
                       <p className="text-xs">知识掌握评价</p>
-                      <p className="mt-1 font-medium text-foreground">{guidance.report.masteryLabel}</p>
+                      <p className="mt-1 font-medium text-foreground">
+                        {guidance.report.masteryLabel}
+                      </p>
                     </div>
                     <div>
                       <p className="text-xs">综合评语</p>
-                      <p className="mt-1 font-medium text-foreground">{guidance.report.overallComment}</p>
+                      <p className="mt-1 font-medium text-foreground">
+                        {guidance.report.overallComment}
+                      </p>
                     </div>
                   </div>
                 </div>
               )}
-              <div className={`rounded-lg border bg-muted/30 p-4 text-sm leading-relaxed text-muted-foreground ${guidance?.report ? "hidden" : ""}`}>
+              <div
+                className={`rounded-lg border bg-muted/30 p-4 text-sm leading-relaxed text-muted-foreground ${guidance?.report ? 'hidden' : ''}`}
+              >
                 <p className="mb-3">
                   <span className="font-medium text-foreground">学习状态：</span>
-                  整体学习状态良好，连续学习 {stats.currentStreak} 天，学习习惯正在养成。本周学习时长 8.5 小时， 高于班级平均水平。
+                  整体学习状态良好，连续学习 {stats.currentStreak}{' '}
+                  天，学习习惯正在养成。本周学习时长 8.5 小时， 高于班级平均水平。
                 </p>
                 <p className="mb-3">
                   <span className="font-medium text-foreground">优势分析：</span>
-                  在环境感知模块表现突出，特别是“相机模型与标定”和“目标检测”掌握率超过 78%， 具备扎实的感知基础。
+                  在环境感知模块表现突出，特别是“相机模型与标定”和“目标检测”掌握率超过 78%，
+                  具备扎实的感知基础。
                 </p>
                 <p className="mb-3">
                   <span className="font-medium text-foreground">改进建议：</span>
-                  第三章任务规划掌握率偏低(38%)，建议：1) 先复习前置知识“世界模型”； 2) 结合仿真工具理解 RRT 算法；3)
-                  增加练习量，当前该章节练习仅完成 3 题。
+                  第三章任务规划掌握率偏低(38%)，建议：1) 先复习前置知识“世界模型”； 2)
+                  结合仿真工具理解 RRT 算法；3) 增加练习量，当前该章节练习仅完成 3 题。
                 </p>
                 <p>
                   <span className="font-medium text-foreground">下周目标：</span>
@@ -901,15 +986,17 @@ export default function StudentAssistantPage() {
                       <button
                         key={tpl.id}
                         type="button"
-                        onClick={() => updatePreference("templateId", tpl.id)}
+                        onClick={() => updatePreference('templateId', tpl.id)}
                         aria-pressed={isSelected}
                         className={`rounded-lg border p-4 text-left transition-colors ${
-                          isSelected ? "border-primary bg-primary/5 ring-2 ring-primary/20" : "hover:border-primary/30 hover:bg-accent/50"
+                          isSelected
+                            ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                            : 'hover:border-primary/30 hover:bg-accent/50'
                         }`}
                       >
                         <div className="mb-2 flex items-center justify-between">
                           <div
-                            className={`flex h-9 w-9 items-center justify-center rounded-lg ${isSelected ? "bg-primary text-primary-foreground" : "bg-muted"}`}
+                            className={`flex h-9 w-9 items-center justify-center rounded-lg ${isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}
                           >
                             <Icon className="h-4 w-4" />
                           </div>
@@ -935,22 +1022,26 @@ export default function StudentAssistantPage() {
                 <div>
                   <div className="mb-2 flex items-center justify-between">
                     <Label className="text-sm">教学节奏</Label>
-                    <span className="text-xs text-muted-foreground">{getPaceLabel(preferences.pace)}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {getPaceLabel(preferences.pace)}
+                    </span>
                   </div>
                   <Slider
                     value={[preferences.pace]}
-                    onValueChange={(value) => updatePreference("pace", value[0] ?? 50)}
+                    onValueChange={(value) => updatePreference('pace', value[0] ?? 50)}
                     aria-label="教学节奏"
                   />
                 </div>
                 <div>
                   <div className="mb-2 flex items-center justify-between">
                     <Label className="text-sm">内容深度</Label>
-                    <span className="text-xs text-muted-foreground">{getDepthLabel(preferences.depth)}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {getDepthLabel(preferences.depth)}
+                    </span>
                   </div>
                   <Slider
                     value={[preferences.depth]}
-                    onValueChange={(value) => updatePreference("depth", value[0] ?? 50)}
+                    onValueChange={(value) => updatePreference('depth', value[0] ?? 50)}
                     aria-label="内容深度"
                   />
                 </div>
@@ -962,7 +1053,10 @@ export default function StudentAssistantPage() {
                     <Select
                       value={preferences.interactionStyle}
                       onValueChange={(value) =>
-                        updatePreference("interactionStyle", value as StudentAssistantPreferences["interactionStyle"])
+                        updatePreference(
+                          'interactionStyle',
+                          value as StudentAssistantPreferences['interactionStyle'],
+                        )
                       }
                     >
                       <SelectTrigger id="interaction-style" className="w-full">
@@ -982,7 +1076,10 @@ export default function StudentAssistantPage() {
                     <Select
                       value={preferences.resourcePriority}
                       onValueChange={(value) =>
-                        updatePreference("resourcePriority", value as StudentAssistantPreferences["resourcePriority"])
+                        updatePreference(
+                          'resourcePriority',
+                          value as StudentAssistantPreferences['resourcePriority'],
+                        )
                       }
                     >
                       <SelectTrigger id="resource-priority" className="w-full">
@@ -999,10 +1096,10 @@ export default function StudentAssistantPage() {
                 </div>
                 <div className="space-y-3 pt-2">
                   {[
-                    { key: "analogy" as const, label: "案例类比" },
-                    { key: "diagram" as const, label: "图示说明" },
-                    { key: "code" as const, label: "代码示例" },
-                    { key: "citation" as const, label: "论文引用" },
+                    { key: 'analogy' as const, label: '案例类比' },
+                    { key: 'diagram' as const, label: '图示说明' },
+                    { key: 'code' as const, label: '代码示例' },
+                    { key: 'citation' as const, label: '论文引用' },
                   ].map((item) => (
                     <div key={item.label} className="flex items-center justify-between">
                       <Label htmlFor={`format-${item.key}`} className="text-sm">
@@ -1012,7 +1109,7 @@ export default function StudentAssistantPage() {
                         id={`format-${item.key}`}
                         checked={preferences.formats[item.key]}
                         onCheckedChange={(checked) =>
-                          updatePreference("formats", {
+                          updatePreference('formats', {
                             ...preferences.formats,
                             [item.key]: checked,
                           })
@@ -1026,17 +1123,23 @@ export default function StudentAssistantPage() {
                     <Label htmlFor="auto-adapt" className="text-sm">
                       自动适应
                     </Label>
-                    <p className="mt-0.5 text-xs text-muted-foreground">允许 AI 根据学习行为微调风格</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      允许 AI 根据学习行为微调风格
+                    </p>
                   </div>
                   <Switch
                     id="auto-adapt"
                     checked={preferences.autoAdapt}
-                    onCheckedChange={(checked) => updatePreference("autoAdapt", checked)}
+                    onCheckedChange={(checked) => updatePreference('autoAdapt', checked)}
                   />
                 </div>
-                <Button className="w-full" onClick={() => void savePreferences()} disabled={isSavingPreferences}>
-                  <Save className={`mr-1.5 h-4 w-4 ${isSavingPreferences ? "animate-spin" : ""}`} />
-                  {isSavingPreferences ? "保存中" : "保存设置"}
+                <Button
+                  className="w-full"
+                  onClick={() => void savePreferences()}
+                  disabled={isSavingPreferences}
+                >
+                  <Save className={`mr-1.5 h-4 w-4 ${isSavingPreferences ? 'animate-spin' : ''}`} />
+                  {isSavingPreferences ? '保存中' : '保存设置'}
                 </Button>
               </CardContent>
             </Card>
@@ -1050,20 +1153,24 @@ export default function StudentAssistantPage() {
                   <Sparkles className="h-4 w-4 text-primary" />
                   AI 动态演化
                 </CardTitle>
-                <Badge variant={preferences.autoAdapt ? "default" : "secondary"}>{preferences.autoAdapt ? "自动运行" : "已暂停"}</Badge>
+                <Badge variant={preferences.autoAdapt ? 'default' : 'secondary'}>
+                  {preferences.autoAdapt ? '自动运行' : '已暂停'}
+                </Badge>
               </div>
               <CardDescription>你的 AI 教师会随学习行为持续调整</CardDescription>
             </CardHeader>
             <CardContent>
               {preferences.autoAdapt ? (
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {(guidance?.adaptationEvents ?? [
-                    {
-                      label: "等待个性导学 agent 读取学习事件",
-                      action: "生成后会显示基于行为数据的风格调整",
-                      time: "当前",
-                    },
-                  ]).map((event) => (
+                  {(
+                    guidance?.adaptationEvents ?? [
+                      {
+                        label: '等待个性导学 agent 读取学习事件',
+                        action: '生成后会显示基于行为数据的风格调整',
+                        time: '当前',
+                      },
+                    ]
+                  ).map((event) => (
                     <div key={event.label} className="rounded-lg border bg-card p-3">
                       <div className="mb-1 flex items-center gap-2">
                         <div className="h-1.5 w-1.5 rounded-full bg-success" />

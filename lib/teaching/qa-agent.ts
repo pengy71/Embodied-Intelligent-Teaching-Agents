@@ -6,7 +6,14 @@ import { resolveModel } from '@/lib/server/resolve-model';
 import { createLogger } from '@/lib/logger';
 import { retrieveContext } from './rag';
 import { loadKnowledge } from './store';
-import { getPoint, getChapter, getPointChapter, getPointSection, getPointSectionNumber, type KnowledgeDoc } from './knowledge-doc';
+import {
+  getPoint,
+  getChapter,
+  getPointChapter,
+  getPointSection,
+  getPointSectionNumber,
+  type KnowledgeDoc,
+} from './knowledge-doc';
 import type { QAResult, QASource, RagContext } from './types';
 
 const log = createLogger('TeachingQAAgent');
@@ -19,7 +26,10 @@ interface QAProfile {
 }
 
 /** 将 RagContext 中的 chunks 格式化为带编号的检索上下文文本。 */
-function formatContext(ctx: RagContext): { contextText: string; sourceChunks: RagContext['chunks'] } {
+function formatContext(ctx: RagContext): {
+  contextText: string;
+  sourceChunks: RagContext['chunks'];
+} {
   const lines: string[] = [];
 
   if (ctx.chunks.length > 0) {
@@ -47,10 +57,7 @@ function formatContext(ctx: RagContext): { contextText: string; sourceChunks: Ra
 }
 
 /** 从检索结果构建 sources 数组（含章节、页码、原文摘录）。 */
-function buildSources(
-  ctx: RagContext,
-  doc: KnowledgeDoc,
-): QASource[] {
+function buildSources(ctx: RagContext, doc: KnowledgeDoc): QASource[] {
   const kpMap = new Map(ctx.knowledgePoints.map((kp) => [kp.id, kp]));
 
   return ctx.chunks.map((chunk) => {

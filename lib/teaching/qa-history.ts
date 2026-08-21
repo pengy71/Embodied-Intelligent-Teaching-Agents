@@ -67,7 +67,8 @@ export async function listQAHistory(
     sources: Array.isArray(row.sources) ? row.sources : [],
     relatedPoints: Array.isArray(row.related_points) ? row.related_points : [],
     profile: row.profile ?? {},
-    createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at ?? ''),
+    createdAt:
+      row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at ?? ''),
   }));
 }
 

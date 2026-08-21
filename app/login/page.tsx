@@ -1,49 +1,50 @@
-"use client";
+'use client';
 
-import { Suspense } from "react";
-import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useSession } from "@/lib/auth/use-session";
-import { Brain, GraduationCap, User, Loader2, LogIn, AlertCircle } from "lucide-react";
+import { Suspense } from 'react';
+import { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useSession } from '@/lib/auth/use-session';
+import { Brain, GraduationCap, User, Loader2, LogIn, AlertCircle } from 'lucide-react';
 
 interface TestAccount {
   username: string;
   password: string;
-  role: "teacher" | "student";
+  role: 'teacher' | 'student';
   name: string;
 }
 
 const TEST_ACCOUNTS: TestAccount[] = [
-  { username: "teacher", password: "teacher123", role: "teacher", name: "陈教授" },
-  { username: "2024001", password: "student123", role: "student", name: "张明" },
-  { username: "2024002", password: "student123", role: "student", name: "刘洋" },
-  { username: "2024003", password: "student123", role: "student", name: "陈静" },
-  { username: "2024004", password: "student123", role: "student", name: "王浩" },
-  { username: "2024005", password: "student123", role: "student", name: "李雪" },
+  { username: 'teacher', password: 'teacher123', role: 'teacher', name: '陈教授' },
+  { username: '2024001', password: 'student123', role: 'student', name: '张明' },
+  { username: '2024002', password: 'student123', role: 'student', name: '刘洋' },
+  { username: '2024003', password: 'student123', role: 'student', name: '陈静' },
+  { username: '2024004', password: 'student123', role: 'student', name: '王浩' },
+  { username: '2024005', password: 'student123', role: 'student', name: '李雪' },
 ];
 
 function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, status, login } = useSession();
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const from = searchParams.get("from");
+  const from = searchParams.get('from');
 
   useEffect(() => {
-    if (status === "authenticated" && user) {
-      const target = from && from.startsWith("/teaching")
-        ? from
-        : user.role === "teacher"
-          ? "/teaching/teacher"
-          : "/teaching/student";
+    if (status === 'authenticated' && user) {
+      const target =
+        from && from.startsWith('/teaching')
+          ? from
+          : user.role === 'teacher'
+            ? '/teaching/teacher'
+            : '/teaching/student';
       router.replace(target);
     }
   }, [status, user, from, router]);
@@ -54,14 +55,15 @@ function LoginPageContent() {
     setSubmitting(true);
     try {
       const u = await login(username.trim(), password);
-      const target = from && from.startsWith("/teaching")
-        ? from
-        : u.role === "teacher"
-          ? "/teaching/teacher"
-          : "/teaching/student";
+      const target =
+        from && from.startsWith('/teaching')
+          ? from
+          : u.role === 'teacher'
+            ? '/teaching/teacher'
+            : '/teaching/student';
       router.replace(target);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "登录失败");
+      setError(err instanceof Error ? err.message : '登录失败');
     } finally {
       setSubmitting(false);
     }
@@ -120,7 +122,11 @@ function LoginPageContent() {
                   <span>{error}</span>
                 </div>
               )}
-              <Button type="submit" className="w-full" disabled={submitting || status === "loading"}>
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={submitting || status === 'loading'}
+              >
                 {submitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -155,7 +161,7 @@ function LoginPageContent() {
                 className="flex w-full items-center gap-3 rounded-lg border bg-card p-3 text-left transition-colors hover:border-primary/40 hover:bg-primary/5"
               >
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                  {acc.role === "teacher" ? (
+                  {acc.role === 'teacher' ? (
                     <GraduationCap className="h-4 w-4 text-primary" />
                   ) : (
                     <User className="h-4 w-4 text-primary" />
@@ -165,7 +171,7 @@ function LoginPageContent() {
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium">{acc.name}</span>
                     <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                      {acc.role === "teacher" ? "教师" : "学生"}
+                      {acc.role === 'teacher' ? '教师' : '学生'}
                     </span>
                   </div>
                   <div className="truncate text-xs text-muted-foreground">

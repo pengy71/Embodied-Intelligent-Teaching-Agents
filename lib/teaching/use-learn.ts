@@ -96,7 +96,11 @@ export function useLearnSession(): UseLearnSessionResult {
           const result = j.result;
           const next: LearnJobState = {
             status:
-              j.status === 'succeeded' ? 'succeeded' : j.status === 'failed' ? 'failed' : 'generating',
+              j.status === 'succeeded'
+                ? 'succeeded'
+                : j.status === 'failed'
+                  ? 'failed'
+                  : 'generating',
             step: j.step ?? '',
             progress: typeof j.progress === 'number' ? j.progress : 0,
             message: j.message ?? '',

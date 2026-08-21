@@ -398,7 +398,10 @@ function PointContentPanel({
   );
 }
 
-export function KnowledgeStructure({ doc, onSelectPoint }: { doc?: KnowledgeDoc; onSelectPoint?: (id: string) => void } = {}) {
+export function KnowledgeStructure({
+  doc,
+  onSelectPoint,
+}: { doc?: KnowledgeDoc; onSelectPoint?: (id: string) => void } = {}) {
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set(['ch01']));
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['ch01-s2']));
   const [selectedPoint, setSelectedPointState] = useState<string | null>('ch01-1-2');

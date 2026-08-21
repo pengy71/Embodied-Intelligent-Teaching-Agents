@@ -21,24 +21,17 @@ const log = createLogger('TeachingReindex');
 const DEFAULT_COURSE_ID = 'default';
 
 /** 为单个知识点构造检索文本（含标题、摘要、前置/关联知识点标题）。 */
-function buildPointSearchText(
-  doc: KnowledgeDoc,
-  point: KnowledgePoint,
-): string {
+function buildPointSearchText(doc: KnowledgeDoc, point: KnowledgePoint): string {
   const parts: string[] = [`【知识点】${point.title}`];
   if (point.summary) parts.push(point.summary);
 
   if (point.prerequisites && point.prerequisites.length > 0) {
-    const titles = point.prerequisites
-      .map((id) => getPoint(doc, id)?.title)
-      .filter(Boolean);
+    const titles = point.prerequisites.map((id) => getPoint(doc, id)?.title).filter(Boolean);
     if (titles.length > 0) parts.push(`前置知识：${titles.join('、')}`);
   }
 
   if (point.related && point.related.length > 0) {
-    const titles = point.related
-      .map((id) => getPoint(doc, id)?.title)
-      .filter(Boolean);
+    const titles = point.related.map((id) => getPoint(doc, id)?.title).filter(Boolean);
     if (titles.length > 0) parts.push(`关联知识：${titles.join('、')}`);
   }
 

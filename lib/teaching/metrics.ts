@@ -1,10 +1,5 @@
 import { addDays, differenceInCalendarDays, formatISODate } from './time';
-import {
-  getKnowledgeGraph,
-  getLearningEvents,
-  getStudentProfile,
-  getStudents,
-} from './db';
+import { getKnowledgeGraph, getLearningEvents, getStudentProfile, getStudents } from './db';
 import type {
   PortraitDimension,
   StudentPortraitScore,
@@ -222,7 +217,8 @@ export async function buildTeacherSnapshot(courseId: string) {
     const nodeMasteries = nodes.map((node) => masteryForNode(node, studentEvents));
     const mastery = clampPercent(average(nodeMasteries));
     const progress = clampPercent(
-      (new Set(studentEvents.map((event) => event.knowledgeNodeId)).size / Math.max(1, nodes.length)) *
+      (new Set(studentEvents.map((event) => event.knowledgeNodeId)).size /
+        Math.max(1, nodes.length)) *
         100,
     );
     const qaCount = studentEvents.filter((event) => event.eventType === 'qa').length;
@@ -269,7 +265,8 @@ export async function buildTeacherSnapshot(courseId: string) {
 
   const hotQuestionsMap = new Map<string, { count: number; nodeId: string }>();
   for (const event of events.filter((item) => item.eventType === 'qa')) {
-    const question = typeof event.payload.question === 'string' ? event.payload.question : '课程概念提问';
+    const question =
+      typeof event.payload.question === 'string' ? event.payload.question : '课程概念提问';
     const current = hotQuestionsMap.get(question) ?? { count: 0, nodeId: event.knowledgeNodeId };
     current.count += 1;
     hotQuestionsMap.set(question, current);
@@ -294,15 +291,19 @@ export async function buildTeacherSnapshot(courseId: string) {
   const warningStudents = studentRows.filter((student) => student.status === '预警');
   const summary = {
     totalStudents: students.length,
-    activeToday: events.filter((event) => differenceInCalendarDays(now, new Date(event.occurredAt)) <= 1)
-      .length,
+    activeToday: events.filter(
+      (event) => differenceInCalendarDays(now, new Date(event.occurredAt)) <= 1,
+    ).length,
     averageProgress: clampPercent(average(studentRows.map((student) => student.progress))),
     averageMastery: clampPercent(average(studentRows.map((student) => student.mastery))),
     warningCount: warningStudents.length,
   };
 
   const completionDistribution = [
-    { label: '80-100%', value: studentRows.filter((student) => student.completionRate >= 80).length },
+    {
+      label: '80-100%',
+      value: studentRows.filter((student) => student.completionRate >= 80).length,
+    },
     {
       label: '60-79%',
       value: studentRows.filter(
@@ -334,7 +335,10 @@ export async function buildTeacherSnapshot(courseId: string) {
     hotQuestions,
     questionTrend: Array.from(trend.entries()).map(([label, count]) => ({ label, count })),
     testDistribution: [
-      { label: '优秀(90+)', value: studentRows.filter((student) => student.testScore >= 90).length },
+      {
+        label: '优秀(90+)',
+        value: studentRows.filter((student) => student.testScore >= 90).length,
+      },
       {
         label: '良好(80-89)',
         value: studentRows.filter((student) => student.testScore >= 80 && student.testScore < 90)
@@ -345,7 +349,10 @@ export async function buildTeacherSnapshot(courseId: string) {
         value: studentRows.filter((student) => student.testScore >= 60 && student.testScore < 80)
           .length,
       },
-      { label: '不及格(<60)', value: studentRows.filter((student) => student.testScore < 60).length },
+      {
+        label: '不及格(<60)',
+        value: studentRows.filter((student) => student.testScore < 60).length,
+      },
     ],
     errorDistribution: nodes
       .map((node) => {
@@ -435,7 +442,13 @@ export async function buildStudentPortraitScore(
     dimensions.reduce((sum, dim) => sum + dim.score * dim.weight, 0),
   );
   const level =
-    portraitScore >= 85 ? '优秀' : portraitScore >= 70 ? '良好' : portraitScore >= 50 ? '及格' : '预警';
+    portraitScore >= 85
+      ? '优秀'
+      : portraitScore >= 70
+        ? '良好'
+        : portraitScore >= 50
+          ? '及格'
+          : '预警';
 
   return {
     schemaVersion: 1,

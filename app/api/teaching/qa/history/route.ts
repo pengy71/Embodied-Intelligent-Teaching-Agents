@@ -34,6 +34,10 @@ export async function GET(request: Request) {
 
     return apiSuccess({ records, total, hasMore: offset + records.length < total });
   } catch (err) {
-    return apiError('INTERNAL_ERROR', 500, err instanceof Error ? err.message : 'Failed to fetch Q&A history');
+    return apiError(
+      'INTERNAL_ERROR',
+      500,
+      err instanceof Error ? err.message : 'Failed to fetch Q&A history',
+    );
   }
 }

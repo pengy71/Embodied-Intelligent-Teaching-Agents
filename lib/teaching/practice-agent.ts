@@ -322,8 +322,7 @@ function buildFallbackQuestion(
     question: `关于"${point.title}"，以下哪一项最符合课程知识库中的核心表述？`,
     options,
     answer: 0,
-    explanation:
-      point.summary || `该题考查知识点"${point.title}"及其在具身智能课程中的基本含义。`,
+    explanation: point.summary || `该题考查知识点"${point.title}"及其在具身智能课程中的基本含义。`,
     pointId: point.id,
     pointTitle: point.title,
     chapter: chapter?.title ?? '课程知识体系',
@@ -378,7 +377,11 @@ export async function generatePracticeQuestions(params: {
   let modelString = '';
 
   try {
-    const { model, modelString: ms, thinkingConfig } = await resolveModel({
+    const {
+      model,
+      modelString: ms,
+      thinkingConfig,
+    } = await resolveModel({
       stage: 'teaching-practice',
     });
     modelString = ms;
@@ -496,7 +499,11 @@ export async function gradeAndAttribution(params: {
   let gradeModelString = '';
   if (subjective.length > 0) {
     try {
-      const { model, modelString: ms, thinkingConfig } = await resolveModel({
+      const {
+        model,
+        modelString: ms,
+        thinkingConfig,
+      } = await resolveModel({
         stage: 'teaching-practice',
       });
       gradeModelString = ms;
@@ -597,9 +604,7 @@ function applySubjectiveScores(graded: GradedQuestion[], results: unknown): void
     if (!isRecord(r)) continue;
     const id = typeof r.id === 'string' ? r.id : '';
     const rawScore = typeof r.score === 'number' ? r.score : Number(r.score);
-    const score = Number.isFinite(rawScore)
-      ? Math.max(0, Math.min(100, Math.round(rawScore)))
-      : 0;
+    const score = Number.isFinite(rawScore) ? Math.max(0, Math.min(100, Math.round(rawScore))) : 0;
     const feedback = typeof r.feedback === 'string' ? r.feedback : '';
     if (id) map.set(id, { score, feedback });
   }
@@ -614,11 +619,7 @@ function applySubjectiveScores(graded: GradedQuestion[], results: unknown): void
   }
 }
 
-function applyAttributions(
-  graded: GradedQuestion[],
-  raw: unknown,
-  doc: KnowledgeDoc,
-): void {
+function applyAttributions(graded: GradedQuestion[], raw: unknown, doc: KnowledgeDoc): void {
   if (!Array.isArray(raw)) return;
   const knownIds = new Set(getAllPoints(doc).map((p) => p.id));
   const map = new Map<string, ErrorAttribution>();
@@ -693,10 +694,7 @@ async function recordPracticeEvents(
         },
       });
     } catch (err) {
-      log.warn(
-        { err: err instanceof Error ? err.message : String(err) },
-        '记录练习事件失败',
-      );
+      log.warn({ err: err instanceof Error ? err.message : String(err) }, '记录练习事件失败');
     }
   }
 }
@@ -946,8 +944,8 @@ function buildVariantUser(
         context.summary && `摘要: ${context.summary}`,
         context.originalText && `教材原文:\n${context.originalText}`,
       ]
-      .filter(Boolean)
-      .join('\n')
+        .filter(Boolean)
+        .join('\n')
     : `知识点: ${seed.pointTitle}`;
   const seedDesc = [
     `原题题干: ${seed.question}`,
@@ -956,7 +954,9 @@ function buildVariantUser(
     `pointId: ${seed.pointId}`,
     seed.type === 'choice' ? `原题选项: ${JSON.stringify(seed.options)}` : '',
     seed.referenceAnswer ? `原题参考答案: ${seed.referenceAnswer}` : '',
-  ].filter(Boolean).join('\n');
+  ]
+    .filter(Boolean)
+    .join('\n');
   return `请基于以下错题生成 ${count} 道同知识点、同题型、同难度的变式题。
 
 ${ctxText}
@@ -982,9 +982,7 @@ export async function getStudentWeakPoints(
   } catch {
     events = [];
   }
-  const practiceEvents = events.filter(
-    (e) => e.eventType === 'practice' || e.eventType === 'quiz',
-  );
+  const practiceEvents = events.filter((e) => e.eventType === 'practice' || e.eventType === 'quiz');
   const byPoint = new Map<string, { scores: number[]; wrongCount: number }>();
   for (const e of practiceEvents) {
     const stat = byPoint.get(e.knowledgeNodeId) ?? { scores: [], wrongCount: 0 };
@@ -1028,7 +1026,6 @@ export async function getStudentWeakPoints(
   }
   return result.slice(0, 10);
 }
-
 
 // ---------------------------------------------------------------------------
 // 学生错题集（持久化）：从 learning events 中还原历次练习/测试的错题

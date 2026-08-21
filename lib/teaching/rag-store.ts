@@ -87,9 +87,7 @@ export async function deleteChunksByResource(resourceId: string): Promise<void> 
 }
 
 /** 删除知识点派生块（resource_id IS NULL），供重建索引。 */
-export async function deleteKnowledgeChunks(
-  courseId: string = DEFAULT_COURSE_ID,
-): Promise<void> {
+export async function deleteKnowledgeChunks(courseId: string = DEFAULT_COURSE_ID): Promise<void> {
   await ensureTeachingSchema();
   await getPool().query(
     'DELETE FROM teaching_chunks WHERE course_id = $1 AND resource_id IS NULL',

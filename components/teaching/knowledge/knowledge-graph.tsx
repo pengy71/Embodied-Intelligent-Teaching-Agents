@@ -76,7 +76,9 @@ function PointNode({ data }: NodeProps) {
       >
         {point.title}
       </span>
-      {learned && <span className="flex-shrink-0 text-[10px] font-bold text-emerald-500">&#10003;</span>}
+      {learned && (
+        <span className="flex-shrink-0 text-[10px] font-bold text-emerald-500">&#10003;</span>
+      )}
       <Handle
         type="source"
         position={Position.Right}
@@ -96,7 +98,15 @@ function GraphSkeleton() {
   );
 }
 
-export function KnowledgeGraph({ doc, learnedPointIds, onLearn }: { doc?: KnowledgeDoc; learnedPointIds?: Set<string>; onLearn?: (pointId: string) => void } = {}) {
+export function KnowledgeGraph({
+  doc,
+  learnedPointIds,
+  onLearn,
+}: {
+  doc?: KnowledgeDoc;
+  learnedPointIds?: Set<string>;
+  onLearn?: (pointId: string) => void;
+} = {}) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hiddenModules, setHiddenModules] = useState<Set<string>>(new Set());
 
@@ -335,7 +345,13 @@ export function KnowledgeGraph({ doc, learnedPointIds, onLearn }: { doc?: Knowle
             <p className="mt-1.5 text-sm text-muted-foreground">{selectedNode.point.summary}</p>
           )}
           {onLearn && (
-            <button type="button" onClick={() => onLearn(selectedNode.point.id)} className="mt-2 inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90">开始学习此知识点</button>
+            <button
+              type="button"
+              onClick={() => onLearn(selectedNode.point.id)}
+              className="mt-2 inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              开始学习此知识点
+            </button>
           )}
           <div className="mt-2 space-y-1.5 text-xs">
             {selectedDetail.prereqs.length > 0 && (

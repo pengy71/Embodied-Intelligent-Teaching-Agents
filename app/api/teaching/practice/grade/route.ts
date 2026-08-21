@@ -15,7 +15,11 @@ export const maxDuration = 120;
 
 export async function POST(req: NextRequest) {
   if (!isTeachingStoreConfigured()) {
-    return apiError('INVALID_REQUEST', 503, 'Teaching knowledge base not configured: please set DATABASE_URL');
+    return apiError(
+      'INVALID_REQUEST',
+      503,
+      'Teaching knowledge base not configured: please set DATABASE_URL',
+    );
   }
   const user = await getSessionUser();
   if (!user) {
@@ -27,7 +31,8 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json().catch(() => ({}));
-    const roundId = typeof body?.roundId === 'string' && body.roundId.trim() ? body.roundId : `pr-${Date.now()}`;
+    const roundId =
+      typeof body?.roundId === 'string' && body.roundId.trim() ? body.roundId : `pr-${Date.now()}`;
     const questions = Array.isArray(body?.questions) ? (body.questions as GeneratedQuestion[]) : [];
     const answers =
       body?.answers && typeof body.answers === 'object'
@@ -70,6 +75,10 @@ export async function POST(req: NextRequest) {
 
     return apiSuccess({ round });
   } catch (err) {
-    return apiError('INTERNAL_ERROR', 500, err instanceof Error ? err.message : 'Failed to grade practice');
+    return apiError(
+      'INTERNAL_ERROR',
+      500,
+      err instanceof Error ? err.message : 'Failed to grade practice',
+    );
   }
 }

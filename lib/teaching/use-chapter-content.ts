@@ -36,12 +36,10 @@ export interface UseChapterContentResult {
   error: Error | null;
 }
 
-export function useChapterContent(
-  chapterId: string | null | undefined,
-): UseChapterContentResult {
+export function useChapterContent(chapterId: string | null | undefined): UseChapterContentResult {
   const supported = !!chapterId && DOCS_CHAPTER_PATTERN.test(chapterId);
   const [content, setContent] = useState<string | null>(() =>
-    supported && chapterId ? cache.get(chapterId)?.content ?? null : null,
+    supported && chapterId ? (cache.get(chapterId)?.content ?? null) : null,
   );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);

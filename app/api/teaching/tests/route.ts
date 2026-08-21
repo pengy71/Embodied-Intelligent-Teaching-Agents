@@ -3,11 +3,7 @@ import { nanoid } from 'nanoid';
 
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { isTeachingStoreConfigured } from '@/lib/teaching/store';
-import {
-  createStageTest,
-  getStudentSubmissions,
-  listStageTests,
-} from '@/lib/teaching/db';
+import { createStageTest, getStudentSubmissions, listStageTests } from '@/lib/teaching/db';
 import { DEFAULT_TEACHING_COURSE_ID } from '@/lib/teaching/seed';
 import { getSessionUser } from '@/lib/auth/accounts';
 import type { StageTestConfig, StageTestDifficulty } from '@/lib/teaching/types';
@@ -31,7 +27,11 @@ function normalizeConfig(raw: unknown): StageTestConfig {
 
 export async function GET() {
   if (!isTeachingStoreConfigured()) {
-    return apiError('INVALID_REQUEST', 503, 'Teaching knowledge base not configured: please set DATABASE_URL');
+    return apiError(
+      'INVALID_REQUEST',
+      503,
+      'Teaching knowledge base not configured: please set DATABASE_URL',
+    );
   }
   const user = await getSessionUser();
   if (!user) {
@@ -55,13 +55,21 @@ export async function GET() {
     }
     return apiSuccess({ tests });
   } catch (err) {
-    return apiError('INTERNAL_ERROR', 500, err instanceof Error ? err.message : 'Failed to list stage tests');
+    return apiError(
+      'INTERNAL_ERROR',
+      500,
+      err instanceof Error ? err.message : 'Failed to list stage tests',
+    );
   }
 }
 
 export async function POST(req: NextRequest) {
   if (!isTeachingStoreConfigured()) {
-    return apiError('INVALID_REQUEST', 503, 'Teaching knowledge base not configured: please set DATABASE_URL');
+    return apiError(
+      'INVALID_REQUEST',
+      503,
+      'Teaching knowledge base not configured: please set DATABASE_URL',
+    );
   }
   const user = await getSessionUser();
   if (!user) {
@@ -93,6 +101,10 @@ export async function POST(req: NextRequest) {
 
     return apiSuccess({ test }, 201);
   } catch (err) {
-    return apiError('INTERNAL_ERROR', 500, err instanceof Error ? err.message : 'Failed to create stage test');
+    return apiError(
+      'INTERNAL_ERROR',
+      500,
+      err instanceof Error ? err.message : 'Failed to create stage test',
+    );
   }
 }

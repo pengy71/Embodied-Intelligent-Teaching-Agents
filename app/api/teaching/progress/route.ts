@@ -14,13 +14,18 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   if (!isTeachingStoreConfigured()) {
-    return apiError('INVALID_REQUEST', 503, 'Teaching knowledge base not configured: please set DATABASE_URL');
+    return apiError(
+      'INVALID_REQUEST',
+      503,
+      'Teaching knowledge base not configured: please set DATABASE_URL',
+    );
   }
   const user = await getSessionUser();
   if (!user) {
     return apiError('INVALID_CREDENTIALS', 401, '请先登录');
   }
-  const studentId = user.role === 'student' ? user.studentId : req.nextUrl.searchParams.get('studentId');
+  const studentId =
+    user.role === 'student' ? user.studentId : req.nextUrl.searchParams.get('studentId');
   if (!studentId) {
     return apiError('MISSING_REQUIRED_FIELD', 400, 'Missing required query parameter: studentId');
   }
@@ -28,13 +33,21 @@ export async function GET(req: NextRequest) {
     const progress = await getProgress(studentId);
     return apiSuccess({ progress });
   } catch (err) {
-    return apiError('INTERNAL_ERROR', 500, err instanceof Error ? err.message : 'Failed to load progress');
+    return apiError(
+      'INTERNAL_ERROR',
+      500,
+      err instanceof Error ? err.message : 'Failed to load progress',
+    );
   }
 }
 
 export async function POST(req: NextRequest) {
   if (!isTeachingStoreConfigured()) {
-    return apiError('INVALID_REQUEST', 503, 'Teaching knowledge base not configured: please set DATABASE_URL');
+    return apiError(
+      'INVALID_REQUEST',
+      503,
+      'Teaching knowledge base not configured: please set DATABASE_URL',
+    );
   }
   const user = await getSessionUser();
   if (!user) {
@@ -53,6 +66,10 @@ export async function POST(req: NextRequest) {
     await upsertProgress(user.studentId, pointId, normalized);
     return apiSuccess({ pointId, status: normalized });
   } catch (err) {
-    return apiError('INTERNAL_ERROR', 500, err instanceof Error ? err.message : 'Failed to update progress');
+    return apiError(
+      'INTERNAL_ERROR',
+      500,
+      err instanceof Error ? err.message : 'Failed to update progress',
+    );
   }
 }

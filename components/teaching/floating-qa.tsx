@@ -1,16 +1,16 @@
-"use client";
+'use client';
 
-import { useState, useRef, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { useQA } from "@/lib/teaching/use-qa";
-import { trackLearningEvent } from "@/lib/teaching/track-event";
-import { Bot, User, Send, MessageSquare, X, Loader2, FileText } from "lucide-react";
+import { useState, useRef, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { useQA } from '@/lib/teaching/use-qa';
+import { trackLearningEvent } from '@/lib/teaching/track-event';
+import { Bot, User, Send, MessageSquare, X, Loader2, FileText } from 'lucide-react';
 
 interface FloatingMessage {
   id: number;
-  role: "user" | "assistant";
+  role: 'user' | 'assistant';
   content: string;
   sources?: Array<{
     title: string;
@@ -21,38 +21,38 @@ interface FloatingMessage {
 
 export function FloatingQA() {
   const [isOpen, setIsOpen] = useState(false);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState('');
   const [messages, setMessages] = useState<FloatingMessage[]>([
     {
       id: 1,
-      role: "assistant",
-      content: "你好！学习过程中有任何疑问都可以随时问我。",
+      role: 'assistant',
+      content: '你好！学习过程中有任何疑问都可以随时问我。',
     },
   ]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { isLoading, askQuestion } = useQA();
 
   useEffect(() => {
-    scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+    scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   const handleSend = async () => {
     if (!input.trim()) return;
     const userMsg: FloatingMessage = {
       id: Date.now(),
-      role: "user",
+      role: 'user',
       content: input,
     };
     setMessages((prev) => [...prev, userMsg]);
     const question = input;
-    setInput("");
+    setInput('');
 
     const result = await askQuestion(question);
     if (result) {
-      const sourcePointId = result.sources?.[0]?.pointId ?? "";
+      const sourcePointId = result.sources?.[0]?.pointId ?? '';
       if (sourcePointId) {
         void trackLearningEvent({
-          eventType: "qa",
+          eventType: 'qa',
           knowledgeNodeId: sourcePointId,
           score: null,
           durationMinutes: 5,
@@ -61,7 +61,7 @@ export function FloatingQA() {
       }
       const aiMsg: FloatingMessage = {
         id: Date.now() + 1,
-        role: "assistant",
+        role: 'assistant',
         content: result.answer,
         sources: result.sources?.map((s) => ({
           title: s.title,
@@ -108,9 +108,9 @@ export function FloatingQA() {
             {messages.map((msg) => (
               <div
                 key={msg.id}
-                className={"flex gap-2 " + (msg.role === "user" ? "justify-end" : "justify-start")}
+                className={'flex gap-2 ' + (msg.role === 'user' ? 'justify-end' : 'justify-start')}
               >
-                {msg.role === "assistant" && (
+                {msg.role === 'assistant' && (
                   <Avatar className="h-7 w-7 shrink-0 bg-primary/10">
                     <AvatarFallback className="text-primary">
                       <Bot className="h-3.5 w-3.5" />
@@ -119,10 +119,8 @@ export function FloatingQA() {
                 )}
                 <div
                   className={
-                    "max-w-[80%] rounded-lg p-2.5 text-sm " +
-                    (msg.role === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted")
+                    'max-w-[80%] rounded-lg p-2.5 text-sm ' +
+                    (msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted')
                   }
                 >
                   <p className="whitespace-pre-wrap">{msg.content}</p>
@@ -136,14 +134,16 @@ export function FloatingQA() {
                           <span className="shrink-0 text-muted-foreground">·</span>
                           <span className="truncate text-muted-foreground">{source.chapter}</span>
                           {source.pageReference ? (
-                            <span className="shrink-0 text-muted-foreground">{source.pageReference}</span>
+                            <span className="shrink-0 text-muted-foreground">
+                              {source.pageReference}
+                            </span>
                           ) : null}
                         </div>
                       ))}
                     </div>
                   )}
                 </div>
-                {msg.role === "user" && (
+                {msg.role === 'user' && (
                   <Avatar className="h-7 w-7 shrink-0 bg-primary">
                     <AvatarFallback className="text-primary-foreground">
                       <User className="h-3.5 w-3.5" />
@@ -174,7 +174,7 @@ export function FloatingQA() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
+                if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
                   handleSend();
                 }

@@ -1,13 +1,13 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { useStudentAssistant } from "@/lib/teaching/use-student-assistant";
-import Link from "next/link";
-import { Sparkles, RefreshCw, BookOpen, Target, ChevronRight } from "lucide-react";
+import { useEffect, useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { useStudentAssistant } from '@/lib/teaching/use-student-assistant';
+import Link from 'next/link';
+import { Sparkles, RefreshCw, BookOpen, Target, ChevronRight } from 'lucide-react';
 
 export function KnowledgeEnhanced() {
   const { data, isLoading, error, revalidate } = useStudentAssistant();
@@ -40,7 +40,9 @@ export function KnowledgeEnhanced() {
                 <Sparkles className="h-4 w-4 text-primary" />
                 Knowledge-Based Recommendations
               </CardTitle>
-              <CardDescription>Based on {data.knowledgeStats.totalPoints} knowledge points</CardDescription>
+              <CardDescription>
+                Based on {data.knowledgeStats.totalPoints} knowledge points
+              </CardDescription>
             </div>
             <Button variant="ghost" size="sm" onClick={revalidate}>
               <RefreshCw className="h-3.5 w-3.5" />
@@ -57,8 +59,11 @@ export function KnowledgeEnhanced() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{rec.title}</p>
                   <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{rec.reason}</p>
-                  <Badge variant={rec.priority === "high" ? "default" : "secondary"} className="mt-1.5 text-xs">
-                    {rec.priority === "high" ? "High Priority" : "Recommended"}
+                  <Badge
+                    variant={rec.priority === 'high' ? 'default' : 'secondary'}
+                    className="mt-1.5 text-xs"
+                  >
+                    {rec.priority === 'high' ? 'High Priority' : 'Recommended'}
                   </Badge>
                 </div>
               </div>
@@ -75,7 +80,9 @@ export function KnowledgeEnhanced() {
               <Target className="h-5 w-5 text-emerald-600" />
             </div>
             <div>
-              <p className="text-xl font-bold">{data.knowledgeStats.masteredPoints}/{data.knowledgeStats.totalPoints}</p>
+              <p className="text-xl font-bold">
+                {data.knowledgeStats.masteredPoints}/{data.knowledgeStats.totalPoints}
+              </p>
               <p className="text-xs text-muted-foreground">Knowledge Points Mastered</p>
             </div>
           </CardContent>
@@ -120,10 +127,12 @@ export function KnowledgeEnhanced() {
                   </span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium">{s.title}</p>
-                    <p className="text-xs text-muted-foreground">{s.reason} ~ {s.estimatedTime}min</p>
+                    <p className="text-xs text-muted-foreground">
+                      {s.reason} ~ {s.estimatedTime}min
+                    </p>
                   </div>
-                  <Badge variant={s.type === "new" ? "default" : "secondary"} className="text-xs">
-                    {s.type === "new" ? "New" : "Review"}
+                  <Badge variant={s.type === 'new' ? 'default' : 'secondary'} className="text-xs">
+                    {s.type === 'new' ? 'New' : 'Review'}
                   </Badge>
                 </div>
               ))}

@@ -88,10 +88,7 @@ async function parseToSegments(buffer: Buffer, name: string): Promise<ParsedSegm
 }
 
 /** 将资源文本分块、向量化并存入 teaching_chunks。失败不影响知识点抽取。 */
-async function indexResourceChunks(
-  resourceId: string,
-  segments: ParsedSegment[],
-): Promise<void> {
+async function indexResourceChunks(resourceId: string, segments: ParsedSegment[]): Promise<void> {
   await deleteChunksByResource(resourceId);
 
   const chunks = chunkSegments(segments);
@@ -279,7 +276,10 @@ export async function runExtraction(resourceId: string): Promise<void> {
 
     await updateResource(resourceId, { status: 'parsing' });
     const segments = await parseToSegments(content.buffer, content.name);
-    const text = segments.map((s) => s.text).join('\n').slice(0, MAX_TEXT_CHARS);
+    const text = segments
+      .map((s) => s.text)
+      .join('\n')
+      .slice(0, MAX_TEXT_CHARS);
     await updateResource(resourceId, { status: 'extracting', parsedText: text });
 
     let points: ExtractedPoint[];
@@ -303,7 +303,6 @@ export async function runExtraction(resourceId: string): Promise<void> {
       await updateResource(resourceId, { status: 'ready', pointIds: merged.pointIds }, client);
       return merged.pointIds;
     });
-
 
     // RAG: 分块 + 向量化 + 存入 teaching_chunks（失败不影响知识点抽取结果）
     if (isEmbeddingConfigured()) {

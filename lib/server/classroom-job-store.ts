@@ -65,7 +65,10 @@ async function withJobTx(
   const client: PoolClient = await getClassroomPool().connect();
   try {
     await client.query('BEGIN');
-    const { rows } = await client.query('SELECT data FROM classroom_jobs WHERE id = $1 FOR UPDATE', [jobId]);
+    const { rows } = await client.query(
+      'SELECT data FROM classroom_jobs WHERE id = $1 FOR UPDATE',
+      [jobId],
+    );
     if (!rows.length) {
       await client.query('ROLLBACK');
       throw new Error(`Classroom generation job not found: ${jobId}`);
@@ -144,7 +147,9 @@ export async function readClassroomGenerationJob(
   jobId: string,
 ): Promise<ClassroomGenerationJob | null> {
   await ensureClassroomJobsSchema();
-  const { rows } = await getClassroomPool().query('SELECT data FROM classroom_jobs WHERE id = $1', [jobId]);
+  const { rows } = await getClassroomPool().query('SELECT data FROM classroom_jobs WHERE id = $1', [
+    jobId,
+  ]);
   if (!rows.length) return null;
   return markStaleIfNeeded(rows[0].data as ClassroomGenerationJob);
 }

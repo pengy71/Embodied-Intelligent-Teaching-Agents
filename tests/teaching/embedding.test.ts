@@ -17,7 +17,13 @@ vi.mock('@ai-sdk/openai', () => ({
   createOpenAI: vi.fn(() => mockOpenAIProvider),
 }));
 
-import { embedTexts, embedQuery, isEmbeddingConfigured, _resetEmbeddingModel, EMBEDDING_DIM } from '@/lib/teaching/embedding';
+import {
+  embedTexts,
+  embedQuery,
+  isEmbeddingConfigured,
+  _resetEmbeddingModel,
+  EMBEDDING_DIM,
+} from '@/lib/teaching/embedding';
 
 describe('embedding service', () => {
   beforeEach(() => {
@@ -59,7 +65,10 @@ describe('embedding service', () => {
 
   it('embedTexts calls embedMany with correct values', async () => {
     process.env.GLM_API_KEY = 'test-key';
-    const mockEmbeddings = [[0.1, 0.2], [0.3, 0.4]];
+    const mockEmbeddings = [
+      [0.1, 0.2],
+      [0.3, 0.4],
+    ];
     mockEmbedMany.mockResolvedValue({ embeddings: mockEmbeddings });
 
     const result = await embedTexts(['hello', 'world']);

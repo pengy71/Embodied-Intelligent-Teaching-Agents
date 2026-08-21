@@ -17,10 +17,7 @@ let _model: ReturnType<ReturnType<typeof createOpenAI>['embedding']> | null = nu
 
 function getApiKey(): string {
   return (
-    process.env.EMBEDDING_API_KEY ??
-    process.env.GLM_API_KEY ??
-    process.env.OPENAI_API_KEY ??
-    ''
+    process.env.EMBEDDING_API_KEY ?? process.env.GLM_API_KEY ?? process.env.OPENAI_API_KEY ?? ''
   );
 }
 
@@ -42,9 +39,7 @@ function getEmbeddingModel() {
 
   const apiKey = getApiKey();
   if (!apiKey) {
-    throw new Error(
-      'Embedding 未配置：请设置 EMBEDDING_API_KEY、GLM_API_KEY 或 OPENAI_API_KEY',
-    );
+    throw new Error('Embedding 未配置：请设置 EMBEDDING_API_KEY、GLM_API_KEY 或 OPENAI_API_KEY');
   }
 
   const openai = createOpenAI({

@@ -65,7 +65,9 @@ export default function StudentResourcesPage() {
   const router = useRouter();
   const { progress } = useStudentProgress();
   const learnedIds = new Set(
-    Object.values(progress).filter((p) => p.status === 'learned').map((p) => p.pointId),
+    Object.values(progress)
+      .filter((p) => p.status === 'learned')
+      .map((p) => p.pointId),
   );
   const [materials, setMaterials] = useState<ResourceItem[]>([]);
   const [materialsLoading, setMaterialsLoading] = useState(false);
@@ -211,7 +213,9 @@ export default function StudentResourcesPage() {
                 onChange={(e) => setQuery(e.target.value)}
               />
             </div>
-            <Badge variant="outline" className="text-xs">{materials.length} 份</Badge>
+            <Badge variant="outline" className="text-xs">
+              {materials.length} 份
+            </Badge>
           </div>
 
           {materialsLoading ? (
@@ -220,21 +224,28 @@ export default function StudentResourcesPage() {
             </div>
           ) : filteredMaterials.length === 0 ? (
             <div className="flex h-40 items-center justify-center rounded-lg border-2 border-dashed text-sm text-muted-foreground">
-              {materials.length === 0
-                ? '教师暂未上传课程资料'
-                : '没有匹配的资料'}
+              {materials.length === 0 ? '教师暂未上传课程资料' : '没有匹配的资料'}
             </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {filteredMaterials.map((m) => (
-                <Card key={m.id} className="transition-base hover:border-primary/30 hover:shadow-md">
+                <Card
+                  key={m.id}
+                  className="transition-base hover:border-primary/30 hover:shadow-md"
+                >
                   <CardContent className="p-4">
                     <div className="mb-3 flex items-start justify-between">
                       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
                         {fileTypeIcon(m.type)}
                       </div>
                       <Badge
-                        variant={m.status === 'ready' ? 'default' : m.status === 'failed' ? 'destructive' : 'secondary'}
+                        variant={
+                          m.status === 'ready'
+                            ? 'default'
+                            : m.status === 'failed'
+                              ? 'destructive'
+                              : 'secondary'
+                        }
                         className="text-xs"
                       >
                         {STATUS_LABEL[m.status] ?? m.status}

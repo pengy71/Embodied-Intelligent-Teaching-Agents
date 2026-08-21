@@ -72,12 +72,9 @@ export async function POST(req: NextRequest) {
         throw new Error(`未找到章节：${chapterId}`);
       }
 
-      let section = sectionId
-        ? chapter.sections.find((s) => s.id === sectionId)
-        : undefined;
+      let section = sectionId ? chapter.sections.find((s) => s.id === sectionId) : undefined;
       if (!section) {
-        const newSectionId =
-          sectionId || `${chapter.id}-s${chapter.sections.length + 1}`;
+        const newSectionId = sectionId || `${chapter.id}-s${chapter.sections.length + 1}`;
         section = {
           id: newSectionId,
           title: sectionTitle || `小节 ${chapter.sections.length + 1}`,
