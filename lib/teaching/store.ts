@@ -2,6 +2,7 @@
 // 复用项目既有 pg 依赖与 DATABASE_URL，复刻 app/api/persistence 的连接模式。
 
 import { Pool, type PoolClient } from 'pg';
+import { ENABLE_PUBLIC_RLS_SQL } from '@/lib/db-rls';
 import { seedKnowledgeDoc, type KnowledgeDoc } from '@/lib/teaching/knowledge-doc';
 
 export type ResourceStatus = 'pending' | 'parsing' | 'extracting' | 'ready' | 'failed';
@@ -109,7 +110,8 @@ export async function ensureTeachingSchema(): Promise<void> {
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now()
     );
-
+    -- 建表完成后锁定 public schema（拒绝 Supabase 公开 API，详见 lib/db-rls.ts）
+    ${ENABLE_PUBLIC_RLS_SQL}
   `);
 }
 

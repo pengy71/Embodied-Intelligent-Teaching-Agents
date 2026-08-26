@@ -11,6 +11,7 @@ import {
 import { Pool } from 'pg';
 
 import { validateAppScene, validateAppStage } from '@/lib/document-store/validators';
+import { enableRlsOnPublicTables } from '@/lib/db-rls';
 import { authenticatePersistenceRequest } from '@/lib/persistence/server-auth';
 
 export const runtime = 'nodejs';
@@ -43,6 +44,8 @@ async function createPersistenceHandler(
   try {
     await ensureSchema(queryable);
     await ensureDocumentSchema(queryable);
+    // 建表完成后锁定 public schema（拒绝 Supabase 公开 API，详见 lib/db-rls.ts）。
+    await enableRlsOnPublicTables(queryable);
     const withTransaction = nodePostgresTransaction(queryable);
     const runtimeStore = new PgRuntimeStore(queryable, { withTransaction });
     const documentStore = new PgDocumentStore(queryable, {

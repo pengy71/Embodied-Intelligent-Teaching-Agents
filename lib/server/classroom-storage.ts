@@ -2,6 +2,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import type { NextRequest } from 'next/server';
 import type { Scene, Stage } from '@/lib/types/stage';
+import { ENABLE_PUBLIC_RLS_SQL } from '@/lib/db-rls';
 import { Pool } from 'pg';
 
 export const CLASSROOMS_DIR = path.join(process.cwd(), 'data', 'classrooms');
@@ -48,7 +49,9 @@ async function ensureClassroomsSchema(): Promise<void> {
       id text PRIMARY KEY,
       data jsonb NOT NULL,
       created_at timestamptz NOT NULL DEFAULT now()
-    )
+    );
+    -- 建表完成后锁定 public schema（拒绝 Supabase 公开 API，详见 lib/db-rls.ts）
+    ${ENABLE_PUBLIC_RLS_SQL}
   `);
 }
 

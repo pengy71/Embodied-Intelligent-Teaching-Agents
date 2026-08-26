@@ -1,5 +1,6 @@
 import { Pool, type QueryResult } from 'pg';
 
+import { enableRlsOnPublicTables } from '../db-rls';
 import {
   defaultAccounts,
   defaultLearningEvents,
@@ -180,6 +181,9 @@ async function createSchema(): Promise<void> {
   `);
   await query(`DROP TABLE IF EXISTS teaching_knowledge_edges`);
   await query(`DROP TABLE IF EXISTS teaching_knowledge_nodes`);
+
+  // 建表完成后锁定 public schema（拒绝 Supabase 公开 API，详见 lib/db-rls.ts）。
+  await enableRlsOnPublicTables(getTeachingPool());
 }
 
 async function upsertLearningEvents(

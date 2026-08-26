@@ -6,6 +6,7 @@ import type {
   GenerateClassroomResult,
 } from '@/lib/server/classroom-generation';
 import { getClassroomPool } from '@/lib/server/classroom-storage';
+import { ENABLE_PUBLIC_RLS_SQL } from '@/lib/db-rls';
 
 export type ClassroomGenerationJobStatus = 'queued' | 'running' | 'succeeded' | 'failed';
 
@@ -53,7 +54,9 @@ async function ensureClassroomJobsSchema(): Promise<void> {
       data jsonb NOT NULL,
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now()
-    )
+    );
+    -- 建表完成后锁定 public schema（拒绝 Supabase 公开 API，详见 lib/db-rls.ts）
+    ${ENABLE_PUBLIC_RLS_SQL}
   `);
 }
 
