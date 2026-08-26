@@ -67,7 +67,7 @@ function printTables(rows, label) {
 
 const pool = new Pool({ connectionString: url, connectionTimeoutMillis: 20000 });
 try {
-  const who = await pool.query('select current_user as u, current_setting(\'server_version\') as v');
+  const who = await pool.query("select current_user as u, current_setting('server_version') as v");
   console.log('[OK] 连接成功，角色:', who.rows[0].u, '| PG:', who.rows[0].v);
 
   const before = (await pool.query(LIST_TABLES)).rows;
@@ -78,9 +78,7 @@ try {
     await pool.query(ENABLE_RLS);
     const after = (await pool.query(LIST_TABLES)).rows;
     const offAfter = printTables(after, '修复后');
-    console.log(
-      `\n已启用 RLS：${offBefore.length} 张新增锁定，剩余未启用：${offAfter.length} 张`,
-    );
+    console.log(`\n已启用 RLS：${offBefore.length} 张新增锁定，剩余未启用：${offAfter.length} 张`);
 
     // 验证：以 postgres（表 owner）在 RLS 开启的表上读写，证明应用连接不受影响。
     await pool.query('CREATE TABLE public.__rls_probe (id int PRIMARY KEY)');

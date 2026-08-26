@@ -29,8 +29,8 @@ BEGIN
 END $$;
 `;
 
-export async function enableRlsOnPublicTables(
-  queryable: { query(text: string): Promise<unknown> },
-): Promise<void> {
+export async function enableRlsOnPublicTables(queryable: {
+  query(text: string): Promise<unknown>;
+}): Promise<void> {
   await queryable.query(ENABLE_PUBLIC_RLS_SQL);
 }
