@@ -95,7 +95,10 @@ function normalizeFillText(s: string): string {
 
 // 用于"标签式选项"检测的文本归一化
 function normalizeLabel(s: string): string {
-  return s.replace(/\s+/g, '').replace(/[「」『』""''·]/g, '').toLowerCase();
+  return s
+    .replace(/\s+/g, '')
+    .replace(/[「」『』""''·]/g, '')
+    .toLowerCase();
 }
 
 function buildTitleSet(doc: KnowledgeDoc): Set<string> {
@@ -318,7 +321,10 @@ function normalizeQuestions(
       if (typeof item.answer === 'number') {
         answer = item.answer;
       } else if (typeof item.answer === 'string') {
-        const letter = item.answer.trim().toUpperCase().match(/^[A-Z]$/);
+        const letter = item.answer
+          .trim()
+          .toUpperCase()
+          .match(/^[A-Z]$/);
         answer = letter ? letter[0].charCodeAt(0) - 65 : Number(item.answer);
       } else {
         answer = NaN;
@@ -379,9 +385,10 @@ function buildFallbackQuestion(
     explanation: string,
     difficulty: PracticeDifficulty,
   ): GeneratedQuestion => {
-    const distractors = dedupe(
-      distractorPool.filter((d) => Boolean(d) && d !== correct),
-    ).slice(0, 3);
+    const distractors = dedupe(distractorPool.filter((d) => Boolean(d) && d !== correct)).slice(
+      0,
+      3,
+    );
     const options = [...distractors];
     const answer = Math.floor(Math.random() * (options.length + 1));
     options.splice(answer, 0, correct);
@@ -427,9 +434,7 @@ function buildFallbackQuestion(
   }
 
   // 3) 知识图谱关系：前置知识点
-  const prereq = (point.prerequisites ?? [])
-    .map((id) => getPoint(doc, id))
-    .find((p) => Boolean(p));
+  const prereq = (point.prerequisites ?? []).map((id) => getPoint(doc, id)).find((p) => Boolean(p));
   if (prereq) {
     const excluded = new Set([
       point.id,
@@ -484,14 +489,7 @@ function topUpWithFallback(
     if (used.has(point.id)) continue;
     used.add(point.id);
     extras.push(
-      buildFallbackQuestion(
-        point,
-        questions.length + extras.length,
-        allPoints,
-        doc,
-        mode,
-        roundId,
-      ),
+      buildFallbackQuestion(point, questions.length + extras.length, allPoints, doc, mode, roundId),
     );
   }
   return [...questions, ...extras];
