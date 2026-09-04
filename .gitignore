@@ -56,6 +56,8 @@ server-providers-*.yml
 
 # vercel
 .vercel
+.vercel-tmp
+.vercel-cli-home
 
 # typescript
 *.tsbuildinfo
@@ -102,3 +104,5 @@ e2e/__screenshots-619/
 
 # local dev tools (portable GitHub CLI etc.)
 /.tools/
+
+.vercel
