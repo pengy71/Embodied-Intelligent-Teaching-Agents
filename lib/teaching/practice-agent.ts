@@ -93,6 +93,53 @@ function normalizeFillText(s: string): string {
     .replace(/[，。、,.!?；;:：""''()（）]/g, '');
 }
 
+// 用于"标签式选项"检测的文本归一化
+function normalizeLabel(s: string): string {
+  return s.replace(/\s+/g, '').replace(/[「」『』""''·]/g, '').toLowerCase();
+}
+
+function buildTitleSet(doc: KnowledgeDoc): Set<string> {
+  const titles = new Set<string>();
+  for (const m of doc.modules) titles.add(normalizeLabel(m.name));
+  for (const c of doc.chapters) {
+    titles.add(normalizeLabel(c.title));
+    for (const s of c.sections) titles.add(normalizeLabel(s.title));
+  }
+  for (const p of getAllPoints(doc)) titles.add(normalizeLabel(p.title));
+  return titles;
+}
+
+/**
+ * 检测"答案就是题目"式的无意义选择题：
+ * - 正确选项是知识点/章节等知识库标题（标签式选项，如正确答案就是"Moravec 悖论"）
+ * - 正确选项原文已在题干中出现（题干自含答案）
+ * - 半数以上选项为知识库标题（整组选项均为标签，无知识内容）
+ */
+function isTrivialChoiceQuestion(
+  question: string,
+  options: string[],
+  answer: number,
+  titleSet: Set<string>,
+): boolean {
+  const correct = options[answer];
+  if (!correct) return true;
+  const normCorrect = normalizeLabel(correct);
+  if (!normCorrect) return true;
+  if (titleSet.has(normCorrect)) return true;
+  if (normalizeLabel(question).includes(normCorrect)) return true;
+  const labelCount = options.filter((o) => titleSet.has(normalizeLabel(o))).length;
+  if (labelCount >= 2 && labelCount * 2 >= options.length) return true;
+  return false;
+}
+
+/** 本组题目的题型配额：以选择题为主，填空题限量。 */
+function typePlan(count: number): { minChoice: number; maxFill: number } {
+  return {
+    minChoice: Math.max(1, Math.ceil(count * 0.7)),
+    maxFill: Math.max(1, Math.floor(count / 4)),
+  };
+}
+
 function normalizeCause(value: unknown): AttributionCause {
   const v = typeof value === 'string' ? value.trim().toLowerCase() : '';
   if (v === 'concept-confusion' || v.includes('概念')) return 'concept-confusion';
@@ -228,6 +275,7 @@ function normalizeQuestions(
 ): GeneratedQuestion[] {
   if (!Array.isArray(raw)) return [];
   const knownIds = new Set(getAllPoints(doc).map((p) => p.id));
+  const titleSet = buildTitleSet(doc);
   const out: GeneratedQuestion[] = [];
   let qIndex = 0;
 
@@ -266,13 +314,19 @@ function normalizeQuestions(
         ? (item.options as unknown[]).map((o) => String(o).trim()).filter(Boolean)
         : [];
       if (options.length < 2) continue;
-      let answer =
-        typeof item.answer === 'number'
-          ? item.answer
-          : typeof item.answer === 'string'
-            ? Number(item.answer)
-            : NaN;
-      if (!Number.isInteger(answer) || answer < 0 || answer >= options.length) answer = 0;
+      let answer: number;
+      if (typeof item.answer === 'number') {
+        answer = item.answer;
+      } else if (typeof item.answer === 'string') {
+        const letter = item.answer.trim().toUpperCase().match(/^[A-Z]$/);
+        answer = letter ? letter[0].charCodeAt(0) - 65 : Number(item.answer);
+      } else {
+        answer = NaN;
+      }
+      // 答案索引非法的题无法可靠判分，直接丢弃
+      if (!Number.isInteger(answer) || answer < 0 || answer >= options.length) continue;
+      // 丢弃"答案就是题目"式的无意义选择题
+      if (isTrivialChoiceQuestion(question, options, answer, titleSet)) continue;
       q = { ...common, type: 'choice', options, answer };
     } else if (type === 'fill') {
       const acceptable = Array.isArray(item.acceptableAnswers)
@@ -306,28 +360,141 @@ function buildFallbackQuestion(
   roundId: string,
 ): GeneratedQuestion {
   const chapter = getPointChapter(doc, point.id);
-  const relatedTitles = (point.related ?? [])
-    .map((id) => allPoints.find((p) => p.id === id)?.title)
-    .filter(Boolean) as string[];
-  const distractors = allPoints
-    .filter((p) => p.id !== point.id && !relatedTitles.includes(p.title))
-    .slice(index + 1, index + 4)
-    .map((p) => p.title);
-  const options = [point.title, ...distractors].slice(0, 4);
-  while (options.length < 4) options.push(`其他课程知识点 ${options.length + 1}`);
-  return {
+  const base = {
     id: `${roundId}-q${index + 1}`,
-    type: 'choice',
-    difficulty: mode === 'special' ? 'hard' : mode === 'test' ? 'medium' : 'easy',
-    question: `关于"${point.title}"，以下哪一项最符合课程知识库中的核心表述？`,
-    options,
-    answer: 0,
-    explanation: point.summary || `该题考查知识点"${point.title}"及其在具身智能课程中的基本含义。`,
+    type: 'choice' as const,
     pointId: point.id,
     pointTitle: point.title,
     chapter: chapter?.title ?? '课程知识体系',
     source: `课程知识库 · ${chapter?.title ?? '知识点原文'}`,
   };
+  const defaultDifficulty: PracticeDifficulty =
+    mode === 'special' ? 'hard' : mode === 'test' ? 'medium' : 'easy';
+
+  // 组装选择题：正确项插入随机位置，干扰项取自池中前几个
+  const assemble = (
+    question: string,
+    correct: string,
+    distractorPool: string[],
+    explanation: string,
+    difficulty: PracticeDifficulty,
+  ): GeneratedQuestion => {
+    const distractors = dedupe(
+      distractorPool.filter((d) => Boolean(d) && d !== correct),
+    ).slice(0, 3);
+    const options = [...distractors];
+    const answer = Math.floor(Math.random() * (options.length + 1));
+    options.splice(answer, 0, correct);
+    return { ...base, difficulty, question, options, answer, explanation };
+  };
+
+  // 1) 常见错误辨析：正确理解 vs 典型误解（含其他知识点的误解作干扰）
+  const mistakeList = (point.mistakes ?? [])
+    .map((id) => getMistake(doc, id))
+    .filter((m) => Boolean(m));
+  const primary = mistakeList[0];
+  if (primary?.right) {
+    const otherWrongs = allPoints
+      .filter((p) => p.id !== point.id)
+      .flatMap((p) => (p.mistakes ?? []).map((id) => getMistake(doc, id)))
+      .map((m) => m?.wrong ?? '');
+    return assemble(
+      `下列关于「${point.title}」的理解中，哪一项是正确的？`,
+      primary.right,
+      [...mistakeList.map((m) => m!.wrong), ...otherWrongs],
+      `正确理解：${primary.right}${primary.wrong ? `；典型误解：${primary.wrong}` : ''}`,
+      mode === 'special' ? 'hard' : 'medium',
+    );
+  }
+
+  // 2) 摘要辨析：本知识点概括 vs 其他知识点的概括（同章节优先作干扰）
+  if (point.summary) {
+    const others = allPoints.filter(
+      (p) => p.id !== point.id && p.summary && p.summary !== point.summary,
+    );
+    const sameChapter = others.filter((p) => getPointChapter(doc, p.id)?.id === chapter?.id);
+    const pool = [
+      ...sameChapter,
+      ...others.filter((p) => getPointChapter(doc, p.id)?.id !== chapter?.id),
+    ];
+    return assemble(
+      `下列哪一项最准确地概括了「${point.title}」的核心内容？`,
+      point.summary,
+      pool.map((p) => p.summary ?? ''),
+      `「${point.title}」的核心内容：${point.summary}`,
+      defaultDifficulty,
+    );
+  }
+
+  // 3) 知识图谱关系：前置知识点
+  const prereq = (point.prerequisites ?? [])
+    .map((id) => getPoint(doc, id))
+    .find((p) => Boolean(p));
+  if (prereq) {
+    const excluded = new Set([
+      point.id,
+      prereq.id,
+      ...(point.related ?? []),
+      ...(point.prerequisites ?? []),
+    ]);
+    return assemble(
+      `按照课程知识图谱，学习「${point.title}」之前应先掌握下列哪个知识点？`,
+      prereq.title,
+      allPoints.filter((p) => !excluded.has(p.id)).map((p) => p.title),
+      `「${prereq.title}」是「${point.title}」的前置知识点，建议先完成其学习。`,
+      defaultDifficulty,
+    );
+  }
+
+  // 4) 兜底：章节归属
+  return assemble(
+    `「${point.title}」属于课程知识体系中的哪一章？`,
+    chapter?.title ?? '课程知识体系',
+    doc.chapters.filter((c) => c.id !== chapter?.id).map((c) => c.title),
+    `「${point.title}」收录于「${chapter?.title ?? '课程知识体系'}」。`,
+    'easy',
+  );
+}
+
+/** 限制填空题数量，保证整组以选择题为主。 */
+function limitFillQuestions(questions: GeneratedQuestion[], maxFill: number): GeneratedQuestion[] {
+  let fillCount = 0;
+  return questions.filter((q) => {
+    if (q.type !== 'fill') return true;
+    fillCount += 1;
+    return fillCount <= maxFill;
+  });
+}
+
+/** 质量过滤/截断后题数不足时，用知识点兜底题补齐到请求数量。 */
+function topUpWithFallback(
+  questions: GeneratedQuestion[],
+  selected: KnowledgePoint[],
+  allPoints: KnowledgePoint[],
+  doc: KnowledgeDoc,
+  mode: PracticeMode,
+  roundId: string,
+  count: number,
+): GeneratedQuestion[] {
+  if (questions.length >= count) return questions;
+  const used = new Set(questions.map((q) => q.pointId));
+  const extras: GeneratedQuestion[] = [];
+  for (const point of selected) {
+    if (questions.length + extras.length >= count) break;
+    if (used.has(point.id)) continue;
+    used.add(point.id);
+    extras.push(
+      buildFallbackQuestion(
+        point,
+        questions.length + extras.length,
+        allPoints,
+        doc,
+        mode,
+        roundId,
+      ),
+    );
+  }
+  return [...questions, ...extras];
 }
 
 // ---------------------------------------------------------------------------
@@ -385,7 +552,7 @@ export async function generatePracticeQuestions(params: {
       stage: 'teaching-practice',
     });
     modelString = ms;
-    const system = buildGenerateSystem(mode);
+    const system = buildGenerateSystem(mode, count);
     const prompt = buildGenerateUser(mode, count, contexts);
     const result = await callLLM(
       { model, system, prompt, maxRetries: 0 },
@@ -396,9 +563,21 @@ export async function generatePracticeQuestions(params: {
     const parsed = extractJsonObject<{ questions: unknown[] }>(result.text);
     const questions = normalizeQuestions(parsed.questions, selected, mode, roundId, doc);
     if (questions.length > 0) {
+      // 填空题限量；质量过滤/限量导致题数不足时用知识点兜底题补齐
+      const { maxFill } = typePlan(count);
+      const balanced = limitFillQuestions(questions, maxFill);
+      const finalQuestions = topUpWithFallback(
+        balanced,
+        selected,
+        allPoints,
+        doc,
+        mode,
+        roundId,
+        count,
+      );
       return {
         roundId,
-        questions,
+        questions: finalQuestions,
         strategy,
         generatedAt: new Date().toISOString(),
         modelString,
@@ -425,13 +604,14 @@ export async function generatePracticeQuestions(params: {
   };
 }
 
-function buildGenerateSystem(mode: PracticeMode): string {
+function buildGenerateSystem(mode: PracticeMode, count: number): string {
+  const { minChoice, maxFill } = typePlan(count);
   const typeHint =
     mode === 'test'
-      ? '选择题、填空题、简答题、案例分析、算法设计应均衡出现'
+      ? `以选择题为主（不少于 ${minChoice} 道），可搭配少量填空/简答题做综合考查`
       : mode === 'special'
-        ? '以易错点为靶心，多用简答/案例/算法题考查深层理解'
-        : '以选择/填空为主，适当搭配 1-2 道简答或案例题';
+        ? `以选择题为主（不少于 ${minChoice} 道），围绕易错点设计高迷惑性干扰项，至多搭配 1 道简答题`
+        : `以选择题为主（不少于 ${minChoice} 道），填空题至多 ${maxFill} 道，可搭配 1 道简答题`;
   return `你是具身智能课程的"习题评测智能体"。请基于给定的知识点与教材原文，生成高质量练习题。
 
 要求：
@@ -440,12 +620,19 @@ function buildGenerateSystem(mode: PracticeMode): string {
 3. 每题需标注 difficulty：easy(简单)/medium(中等)/hard(困难)，整组应覆盖至少两级难度。
 4. 题干、选项、答案必须依据提供的教材原文与知识点，不得编造课程外的内容。
 5. 每道题的 pointId 必须从给定的知识点列表中选取。
-6. choice 题提供 options(2-4 项)与 answer(正确选项索引)；fill 题提供 acceptableAnswers(可接受的等价答案)；short/case/algorithm 题提供 referenceAnswer(参考答案)与 gradingCriteria(评分要点)。
+6. choice 题提供 options(4 项)与 answer(正确选项索引)；fill 题提供 acceptableAnswers(可接受的等价答案)；short/case/algorithm 题提供 referenceAnswer(参考答案)与 gradingCriteria(评分要点)。
 7. 每题附 explanation(解析)，简明说明考查点。
-8. 语言使用简体中文，表述严谨。`;
+8. 语言使用简体中文，表述严谨。
+9. 选择题质量红线（违反任一条的题目会被系统丢弃）：
+   - 选项必须是完整的知识表述（定义、原理、结论或公式含义），严禁把知识点名称、章节标题等"标签"直接当作选项；
+   - 正确选项不得与题干重复，也不得是题干中已出现内容的原样复述；
+   - 题干必须考查对知识点的具体理解（概念辨析、原理判断、方法对比、公式应用等），严禁"以下哪一项是关于 X 的知识点"这类元问题；
+   - 干扰项应与正确选项同类型、篇幅相近且具有迷惑性（可用易混淆概念或方向相反的表述）。
+10. fill 填空题的答案必须是教材中的关键术语、符号或结论，题干需给出充分上下文且答案唯一。`;
 }
 
 function buildGenerateUser(mode: PracticeMode, count: number, contexts: PointContext[]): string {
+  const { minChoice, maxFill } = typePlan(count);
   const blocks = contexts
     .map((c) => {
       const parts = [
@@ -462,7 +649,7 @@ function buildGenerateUser(mode: PracticeMode, count: number, contexts: PointCon
     .join('\n\n');
 
   return `练习模式: ${mode}
-需要生成题目数: ${count}
+需要生成题目数: ${count}（其中选择题 choice 不少于 ${minChoice} 道，填空题 fill 至多 ${maxFill} 道）
 
 可用知识点与原文：
 ${blocks}
@@ -929,7 +1116,8 @@ function buildVariantSystem(seed: GeneratedQuestion): string {
 3. 题干情境、数据或设问角度需与原题不同，但考查同一知识点。
 4. 依据提供的教材原文，不得编造课程外内容。
 5. choice 题提供 options 与 answer；fill 题提供 acceptableAnswers；short/case/algorithm 题提供 referenceAnswer 与 gradingCriteria。
-6. 每题附 explanation，语言使用简体中文。`;
+6. 每题附 explanation，语言使用简体中文。
+7. choice 题选项必须是完整的知识内容表述，严禁把知识点名称、章节标题当作选项，正确选项不得与题干重复，题干不得是"以下哪一项是关于 X 的知识点"这类元问题。`;
 }
 
 function buildVariantUser(
